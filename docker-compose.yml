@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: precision-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: precision_nutrition
+      POSTGRES_USER: precision_user
+      POSTGRES_PASSWORD: precision_pass
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init-db/V1__init_schema.sql:/docker-entrypoint-initdb.d/01_init_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U precision_user -d precision_nutrition"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - precision_network
+
+volumes:
+  pgdata:
+    name: precision_nutrition_pgdata
+
+networks:
+  precision_network:
+    name: precision_nutrition_network
+    driver: bridge

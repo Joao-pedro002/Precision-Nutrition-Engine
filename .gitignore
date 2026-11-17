@@ -1,0 +1,93 @@
+# =============================================================================
+# PRECISION NUTRITION ENGINE — GITIGNORE
+# =============================================================================
+
+# --- Environment Secrets & Credentials ---
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.keystore
+*.secret
+
+# --- Python & ETL (etl-python/) ---
+etl-python/.venv/
+etl-python/venv/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# --- Java & Spring Boot (backend-spring/) ---
+backend-spring/target/
+target/
+*.class
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+.factorypath
+.project
+.classpath
+.settings/
+*.iml
+.idea/
+*.ipr
+*.iws
+
+# --- Node.js & Next.js (frontend-nextjs/) ---
+frontend-nextjs/node_modules/
+frontend-nextjs/.next/
+frontend-nextjs/out/
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.turbo/
+*.tsbuildinfo
+.pnp
+.pnp.js
+
+# --- Docker & Persistence Volumes ---
+pgdata/
+postgres_data/
+docker/data/
+
+# --- Operating System & Editor Artifacts ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+*$*
+*.log
+*.tmp
+*.bak
+
+# --- Obsidian Local Vault State (Keep Markdown Docs Versionable) ---
+docs/.obsidian/
+docs/obsidian-vault/.obsidian/
+**/.obsidian/
+**/.trash/
+.OBSIDIANTEST
+
+# Arquivos estáticos pesados do ETL
+etl-python/raw-data/*.csv
+etl-python/raw-data/*.xlsx
+etl-python/raw-data/*.json
+
+# Volume exato do banco de dados deste projeto
+pgdata_nutrition/
