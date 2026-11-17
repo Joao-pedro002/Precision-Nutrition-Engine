@@ -13,3 +13,104 @@ Projetado para superar as limitações de aplicativos comerciais comuns, o siste
 
 ## 📂 Documentação e ADRs
 Todas as decisões arquiteturais (Architecture Decision Records), o esquema da base de dados e o motor matemático encontram-se documentados e versionados na pasta `/docs/obsidian-vault`.
+
+---
+
+## 🚀 Guia Rápido de Inicialização (Quickstart)
+
+Siga os passos abaixo para executar a aplicação completa em ambiente local.
+
+### 📋 Pré-requisitos
+* [Git](https://git-scm.com/)
+* [Docker & Docker Compose](https://www.docker.com/)
+* [JDK 21](https://adoptium.net/) e [Apache Maven 3.9+](https://maven.apache.org/)
+* [Node.js 18+](https://nodejs.org/) e npm
+* [Python 3.10+](https://www.python.org/) *(necessário apenas para a carga inicial da base TACO)*
+
+---
+
+### 1. Clonar o Repositório
+```bash
+git clone https://github.com/Joao-pedro002/Precision-Nutrition-Engine.git
+cd Precision-Nutrition-Engine
+```
+
+---
+
+### 2. Configuração de Ambiente & Proteção de Dados 🔒
+> **Aviso de Privacidade e Segurança:** Nunca versione arquivos `.env` ou credenciais privadas no repositório. O arquivo `.gitignore` do projeto já protege arquivos sensíveis automaticamente.
+
+Copie o template de exemplo para criar seu arquivo de variáveis local:
+```bash
+cp .env.example .env
+```
+
+* **Banco de Dados:** O sistema vem pré-configurado para conectar ao PostgreSQL local na porta `5433` (isolada para evitar conflitos com instâncias locais nativas na porta 5432).
+* **Chave da API USDA (Opcional):** O sistema utiliza a `DEMO_KEY` pública por padrão. Caso deseje um limite maior de requisições, gere uma chave gratuita no portal [USDA FoodData Central](https://fdc.nal.usda.gov/api-key-signup.html) e defina em seu `.env`:
+  ```env
+  USDA_API_KEY=sua_chave_privada_aqui
+  ```
+
+---
+
+### 3. Iniciar o Banco de Dados (PostgreSQL 16)
+Na raiz do projeto, inicie o container com as extensões (`pg_trgm`, `unaccent`, `uuid-ossp`) e o schema inicial:
+```bash
+docker compose up -d
+```
+Verifique se o banco está pronto:
+```bash
+docker ps --filter "name=precision-postgres"
+```
+
+---
+
+### 4. Carga dos Alimentos da TACO (ETL Python)
+Execute o script de ingestão para popular a tabela com os 597 alimentos da TACO 4ª edição:
+```bash
+cd etl-python
+
+# Criar e ativar o ambiente virtual
+python -m venv .venv
+
+# No Windows:
+.venv\Scripts\activate
+# No Linux/macOS:
+# source .venv/bin/activate
+
+# Instalar dependências e executar o ETL
+pip install -r requirements.txt
+python etl_taco.py
+
+cd ..
+```
+
+---
+
+### 5. Iniciar o Back-end (Spring Boot 3 / Java 21)
+Abra um terminal e inicie a API REST na porta `8080`:
+```bash
+cd backend-spring
+mvn spring-boot:run
+```
+*(O banco executará as migrações Flyway e populará o protocolo Cutting de 2100 kcal e as 5 refeições padrão).*
+
+---
+
+### 6. Iniciar o Front-end (Next.js 14 PWA)
+Abra outro terminal e inicie a interface do usuário na porta `3000`:
+```bash
+cd frontend-nextjs
+npm install
+npm run dev
+```
+
+---
+
+### 7. Acessar o Aplicativo
+Abra seu navegador em:
+👉 **[http://localhost:3000](http://localhost:3000)**
+
+* Documentação da API REST (Back-end): `http://localhost:8080/api/v1/dashboard`
+* Testes do Back-end: `cd backend-spring && mvn test`
+* Build de Produção do Front-end: `cd frontend-nextjs && npm run build`
