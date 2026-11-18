@@ -16,6 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -44,34 +48,48 @@ public class FoodSyncServiceImpl implements FoodSyncService {
             log.info("Resultado local inferior a 3 itens para '{}'. Disparando busca Read-Through na USDA API...", cleanQuery);
             try {
                 UsdaSearchResponse usdaResponse = usdaApiClient.searchFoods(cleanQuery);
-                List<Food> newlyMappedFoods = new ArrayList<>();
 
                 if (usdaResponse != null && !usdaResponse.safeFoods().isEmpty()) {
+                    // 1. Deduplicação do Payload da USDA (Pré-Gravação): Manter apenas a primeira ocorrência de cada nome único
+                    Map<String, UsdaFoodItem> uniqueUsdaPayload = new LinkedHashMap<>();
                     for (UsdaFoodItem item : usdaResponse.safeFoods()) {
+                        String nameKey = buildFoodName(item).toLowerCase().trim();
+                        uniqueUsdaPayload.putIfAbsent(nameKey, item);
+                    }
+
+                    // 2. Proteção de Inserção (Idempotência Local): Apenas gravar se NÃO existir no repositório local
+                    Set<String> localNames = localFoods.stream()
+                            .filter(Objects::nonNull)
+                            .map(Food::getName)
+                            .filter(n -> n != null && !n.isBlank())
+                            .map(n -> n.toLowerCase().trim())
+                            .collect(Collectors.toSet());
+
+                    List<Food> newFoods = new ArrayList<>();
+                    for (Map.Entry<String, UsdaFoodItem> entry : uniqueUsdaPayload.entrySet()) {
+                        String nameKey = entry.getKey();
+                        UsdaFoodItem item = entry.getValue();
+
+                        // Ignora se o nome já existe na base local
+                        if (localNames.contains(nameKey)) {
+                            log.debug("Alimento USDA descartado por já existir na base local: {}", nameKey);
+                            continue;
+                        }
+
                         String externalId = "USDA-" + item.fdcId();
                         Optional<Food> existing = foodRepository.findBySourceAndExternalId(FoodSource.USDA, externalId);
 
                         if (existing.isEmpty()) {
                             Food mappedFood = mapUsdaItemToFood(item, externalId);
-                            newlyMappedFoods.add(mappedFood);
+                            newFoods.add(mappedFood);
+                            localNames.add(nameKey); // Proteção contra repetição dentro do mesmo lote
                         }
                     }
 
-                    if (!newlyMappedFoods.isEmpty()) {
-                        List<Food> savedFoods = foodRepository.saveAll(newlyMappedFoods);
+                    if (!newFoods.isEmpty()) {
+                        List<Food> savedFoods = foodRepository.saveAll(newFoods);
                         log.info("Persistidos {} novos alimentos da USDA no banco de dados local.", savedFoods.size());
-
-                        Set<UUID> existingIds = new HashSet<>();
-                        for (Food f : localFoods) {
-                            existingIds.add(f.getId());
-                        }
-
-                        for (Food sf : savedFoods) {
-                            if (!existingIds.contains(sf.getId())) {
-                                localFoods.add(sf);
-                                existingIds.add(sf.getId());
-                            }
-                        }
+                        localFoods.addAll(savedFoods);
                     }
                 }
             } catch (Exception e) {
@@ -79,7 +97,40 @@ public class FoodSyncServiceImpl implements FoodSyncService {
             }
         }
 
-        return localFoods;
+        // 3. Deduplicação da Resposta Final (Controller Response): Nomes e IDs 100% únicos
+        return localFoods.stream()
+                .filter(Objects::nonNull)
+                .filter(f -> f.getName() != null && !f.getName().isBlank())
+                .filter(distinctByKey(Food::getId))
+                .filter(distinctByKey(f -> f.getName().toLowerCase().trim()))
+                .toList();
+    }
+
+    /**
+     * Predicado utilitário para deduplicação em Streams por chave de extração.
+     */
+    public static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {
+        Set<Object> seen = ConcurrentHashMap.newKeySet();
+        return t -> {
+            if (t == null) return false;
+            Object key = keyExtractor.apply(t);
+            if (key == null) return true;
+            return seen.add(key);
+        };
+    }
+
+    /**
+     * Constrói o nome padronizado do alimento USDA, incluindo a marca se aplicável.
+     */
+    public String buildFoodName(UsdaFoodItem item) {
+        if (item == null) {
+            return "USDA Food";
+        }
+        String name = item.description() != null ? item.description().trim() : "USDA Food #" + item.fdcId();
+        if (item.brandOwner() != null && !item.brandOwner().isBlank() && !name.toLowerCase().contains(item.brandOwner().toLowerCase())) {
+            name = name + " (" + item.brandOwner().trim() + ")";
+        }
+        return name;
     }
 
     private Food mapUsdaItemToFood(UsdaFoodItem item, String externalId) {
@@ -120,10 +171,7 @@ public class FoodSyncServiceImpl implements FoodSyncService {
                 extractNutrientValue(nutrients, 601, "601", 1258, "Cholesterol")
         );
 
-        String name = item.description() != null ? item.description().trim() : "USDA Food #" + item.fdcId();
-        if (item.brandOwner() != null && !item.brandOwner().isBlank() && !name.toLowerCase().contains(item.brandOwner().toLowerCase())) {
-            name = name + " (" + item.brandOwner().trim() + ")";
-        }
+        String name = buildFoodName(item);
 
         return Food.builder()
                 .name(name)
