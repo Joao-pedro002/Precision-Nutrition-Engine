@@ -4,7 +4,7 @@ project: "Precision Nutrition Engine (TACO + USDA)"
 author: "Senior Software Architect & Data Engineer"
 created_at: 2026-11-16
 updated_at: 2026-11-16
-version: "2.0.0"
+version: "2.1.0"
 status: "COMPLETED"
 tags:
   - kanban
@@ -49,6 +49,8 @@ stateDiagram-v2
 | **4** | **Back-end USDA, Controllers & Dashboard** | ✅ **CONCLUÍDO** | 16/11/2026 | RestClient USDA, 6 Controllers, CORS, Seeder, 17/17 Testes OK |
 | **5** | **Front-end Next.js (Dashboard & Hidratação)** | ✅ **CONCLUÍDO** | 16/11/2026 | Next.js 14, PWA, RSC, 3 Zonas, 3 Donuts SVG, useOptimistic Water |
 | **6** | **Front-end Next.js (Refeições & Substituição)** | ✅ **CONCLUÍDO** | 16/11/2026 | Cards expansíveis, Multi-Opção 1/2, Check Na Dieta, Modal Drift |
+| **7** | **UX Avançada, Onboarding & Resiliência (Full-Stack)** | ✅ **CONCLUÍDO** | 17/11/2026 | TargetWizardModal, Quick Substitutions Top 5, Medidas Caseiras, TTL 6d, ADR-010 |
+| **Patch** | **Patch Cumulativo: Transação, Auto-Onboarding, Proteína & Inputs** | ✅ **CONCLUÍDO** | 17/11/2026 | saveAndFlush uq_single_active, Slider Proteína 1.5-3.0, Leading Zeros fix, Logout/Reset |
 
 ---
 

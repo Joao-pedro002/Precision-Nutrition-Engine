@@ -6,11 +6,13 @@ import {
   Food,
   SubstitutionResult,
   DominantMacro,
+  QuickSubstitutionDto,
 } from '@/types/nutrition';
 import {
   searchFoodsServerAction,
   substituteFoodServerAction,
   applyItemSubstitutionServerAction,
+  getQuickSubstitutionsServerAction,
 } from '@/app/actions';
 import {
   X,
@@ -22,6 +24,7 @@ import {
   Scale,
   Sparkles,
   Loader2,
+  Zap,
 } from 'lucide-react';
 
 interface SubstitutionModalProps {
@@ -47,12 +50,53 @@ export function SubstitutionModal({
 
   const [selectedFood, setSelectedFood] = useState<Food | null>(null);
   const [macroOverride, setMacroOverride] = useState<DominantMacro | 'KCAL' | null>(null);
-  const [sourceWeight, setSourceWeight] = useState<number>(item.weightG);
+  const [sourceWeight, setSourceWeight] = useState<string | number>(item.weightG);
 
   const [substitutionResult, setSubstitutionResult] = useState<SubstitutionResult | null>(null);
   const [isCalculating, startCalcTransition] = useTransition();
   const [isApplying, startApplyTransition] = useTransition();
   const [calcError, setCalcError] = useState<string | null>(null);
+
+  const [quickSuggestions, setQuickSuggestions] = useState<QuickSubstitutionDto[]>([]);
+  const [isLoadingQuick, setIsLoadingQuick] = useState<boolean>(false);
+
+  // Sincroniza o peso quando o item ou modal muda
+  useEffect(() => {
+    if (isOpen) {
+      setSourceWeight(item.weightG);
+    }
+  }, [isOpen, item.weightG]);
+
+  // Fetch silencioso de sugestões inteligentes de troca rápida ao abrir o modal
+  useEffect(() => {
+    if (!isOpen || !item.foodId) {
+      setQuickSuggestions([]);
+      return;
+    }
+
+    const numericWeight = typeof sourceWeight === 'number' ? sourceWeight : (Number(sourceWeight) || 0);
+    if (numericWeight <= 0) return;
+
+    let isMounted = true;
+    setIsLoadingQuick(true);
+
+    getQuickSubstitutionsServerAction(item.foodId, numericWeight, macroOverride)
+      .then((data) => {
+        if (isMounted) {
+          setQuickSuggestions(data || []);
+        }
+      })
+      .catch((err) => {
+        console.warn('Sugestões rápidas indisponíveis:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingQuick(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, item.foodId, sourceWeight, macroOverride]);
 
   // Controle do native <dialog>
   useEffect(() => {
@@ -106,12 +150,18 @@ export function SubstitutionModal({
       return;
     }
 
+    const numericWeight = typeof sourceWeight === 'number' ? sourceWeight : (Number(sourceWeight) || 0);
+    if (numericWeight <= 0) {
+      setSubstitutionResult(null);
+      return;
+    }
+
     startCalcTransition(async () => {
       setCalcError(null);
       try {
         const result = await substituteFoodServerAction({
           sourceFoodId: item.foodId,
-          sourceWeightG: sourceWeight,
+          sourceWeightG: numericWeight,
           targetFoodId: selectedFood.id,
           targetMacroOverride: macroOverride,
         });
@@ -203,17 +253,128 @@ export function SubstitutionModal({
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-400">Peso:</span>
               <input
-                type="number"
-                min="10"
-                max="1000"
-                step="5"
-                value={sourceWeight}
-                onChange={(e) => setSourceWeight(Number(e.target.value))}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={typeof sourceWeight === 'string' ? sourceWeight : String(sourceWeight)}
+                onChange={(e) => {
+                  const val = e.target.value.trim();
+                  if (val === '') {
+                    setSourceWeight('');
+                  } else {
+                    const cleaned = val.replace(/^0+(?=\d)/, '');
+                    if (/^\d*$/.test(cleaned)) {
+                      setSourceWeight(cleaned);
+                    }
+                  }
+                }}
                 className="w-20 px-2.5 py-1 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-white text-center focus:border-emerald-500 focus:outline-none"
               />
               <span className="text-xs text-slate-400">g</span>
             </div>
           </div>
+        </div>
+
+        {/* Sugestões Inteligentes (Troca Rápida Top 5 com menor Calorie Drift) */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              Sugestões Inteligentes (Troca Rápida)
+            </span>
+            {isLoadingQuick && (
+              <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                <Loader2 className="w-3 h-3 animate-spin text-emerald-400" />
+                Carregando Top 5...
+              </span>
+            )}
+          </div>
+
+          {quickSuggestions.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {quickSuggestions.map((sub) => {
+                const isSelected = selectedFood?.id === sub.targetFoodId;
+                const absDelta = Math.abs(sub.deltaKcal);
+                const isRed = sub.calorieDriftWarning || Math.abs(sub.calorieDriftPercent) > 10;
+                const isYellow = !isRed && (absDelta > 15 || Math.abs(sub.calorieDriftPercent) > 5);
+
+                const badgeStyle = isRed
+                  ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                  : isYellow
+                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                  : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+
+                return (
+                  <button
+                    key={sub.targetFoodId}
+                    type="button"
+                    onClick={() => {
+                      setSelectedFood({
+                        id: sub.targetFoodId,
+                        name: sub.targetFoodName,
+                        source: 'TACO',
+                        externalId: null,
+                        category: sub.foodGroup,
+                        dominantMacro: 'PROTEIN',
+                        servingSizeG: 100,
+                        energyKcal: sub.energyKcal,
+                        proteinG: sub.proteinG,
+                        carbohydrateG: sub.carbohydrateG,
+                        lipidG: sub.lipidG,
+                        fiberG: 0,
+                        micronutrients: {
+                          calcium_mg: 0,
+                          iron_mg: 0,
+                          magnesium_mg: 0,
+                          potassium_mg: 0,
+                          sodium_mg: 0,
+                          zinc_mg: 0,
+                          vitamin_c_mg: 0,
+                          vitamin_b12_mcg: 0,
+                          cholesterol_mg: 0,
+                        },
+                      });
+                    }}
+                    className={`p-3 rounded-2xl border text-left transition-all relative ${
+                      isSelected
+                        ? 'bg-emerald-500/15 border-emerald-500/60 shadow-lg ring-1 ring-emerald-500/40'
+                        : 'bg-slate-800/40 border-slate-700/60 hover:bg-slate-800 hover:border-slate-600'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-xs font-bold text-white line-clamp-1">
+                        {sub.targetFoodName}
+                      </span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${badgeStyle}`}>
+                        {sub.deltaKcal > 0 ? `+${sub.deltaKcal.toFixed(0)}` : sub.deltaKcal.toFixed(0)} kcal
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-400">
+                      <span className="font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                        {sub.calculatedWeightG.toFixed(0)}g
+                      </span>
+                      <span>P: {sub.proteinG.toFixed(0)}g</span>
+                      <span>•</span>
+                      <span>C: {sub.carbohydrateG.toFixed(0)}g</span>
+                      <span>•</span>
+                      <span>G: {sub.lipidG.toFixed(0)}g</span>
+                    </div>
+
+                    {sub.portions && sub.portions.length > 0 && (
+                      <div className="mt-1.5 text-[10px] text-slate-400 truncate">
+                        Porção sugerida: <span className="text-slate-300 font-medium">{sub.portions[0].portionName}</span>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ) : !isLoadingQuick ? (
+            <p className="text-xs text-slate-500 italic bg-slate-800/20 p-2.5 rounded-xl border border-slate-800">
+              Nenhuma alternativa direta mapeada no grupo culinário atual. Use a busca abaixo.
+            </p>
+          ) : null}
         </div>
 
         {/* Barra de Busca de Alimentos */}

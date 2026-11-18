@@ -1,5 +1,6 @@
 package com.precisionnutrition.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.precisionnutrition.model.dto.MicronutrientsData;
 import com.precisionnutrition.model.enums.DominantMacro;
 import com.precisionnutrition.model.enums.FoodSource;
@@ -12,6 +13,8 @@ import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -63,6 +66,18 @@ public class Food {
     @Column(name = "fiber_g", nullable = false, precision = 8, scale = 2)
     @Builder.Default
     private BigDecimal fiberG = BigDecimal.ZERO;
+
+    @Column(name = "popularity_score", nullable = false)
+    @Builder.Default
+    private Integer popularityScore = 10;
+
+    @Column(name = "food_group", length = 50)
+    private String foodGroup;
+
+    @OneToMany(mappedBy = "food", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    @JsonIgnore
+    private List<FoodPortion> portions = new ArrayList<>();
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "micronutrients", nullable = false, columnDefinition = "jsonb")

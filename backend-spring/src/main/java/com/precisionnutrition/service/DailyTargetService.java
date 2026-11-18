@@ -15,4 +15,6 @@ public interface DailyTargetService {
     DailyTarget createTarget(DailyTargetRequest request);
 
     DailyTarget activateTarget(UUID targetId, UUID userId);
+
+    void deactivateActiveTarget(UUID userId);
 }

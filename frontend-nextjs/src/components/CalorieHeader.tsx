@@ -1,6 +1,10 @@
-import React from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import { DailySummaryDto, DailyTarget } from '@/types/nutrition';
-import { Flame, ShieldAlert, Sparkles, TrendingUp } from 'lucide-react';
+import { Flame, ShieldAlert, Sparkles, TrendingUp, LogOut, Loader2 } from 'lucide-react';
+import { TargetWizardModal } from '@/components/TargetWizardModal';
+import { deactivateActiveTargetServerAction } from '@/app/actions';
 
 interface CalorieHeaderProps {
   summary: DailySummaryDto;
@@ -9,6 +13,32 @@ interface CalorieHeaderProps {
 }
 
 export function CalorieHeader({ summary, activeTarget, currentDate }: CalorieHeaderProps) {
+  const hasActiveTarget = Boolean(activeTarget && activeTarget.id);
+  const [isWizardOpen, setIsWizardOpen] = useState(!hasActiveTarget);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Auto-Onboarding: Se não há protocolo ativo, força abertura do Wizard
+  useEffect(() => {
+    if (!hasActiveTarget) {
+      setIsWizardOpen(true);
+    }
+  }, [hasActiveTarget]);
+
+  const handleLogout = async () => {
+    if (confirm('Deseja realmente sair e reiniciar a sessão de metas nutricionais?')) {
+      setIsLoggingOut(true);
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+        await deactivateActiveTargetServerAction();
+        window.location.reload();
+      } catch (err) {
+        console.error('Erro ao desativar meta:', err);
+        window.location.reload();
+      }
+    }
+  };
+
   const {
     consumedEnergyKcal,
     targetKcalMin,
@@ -81,13 +111,39 @@ export function CalorieHeader({ summary, activeTarget, currentDate }: CalorieHea
             {formattedDate}
           </span>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-3 mt-1">
-            Plano Ativo: {activeTarget ? 'Cutting de Precisão' : 'Sem Meta Ativa'}
+            Plano Ativo: {activeTarget ? (activeTarget.targetSource === 'CALCULATED' ? 'Metabolismo Clínico' : 'Cutting de Precisão') : 'Sem Meta Ativa'}
           </h1>
         </div>
 
-        <div className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-semibold self-start sm:self-auto ${badge.color}`}>
-          {badge.icon}
-          <span>{badge.label}</span>
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsWizardOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-semibold transition"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Wizard de Metas</span>
+          </button>
+          {hasActiveTarget && (
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-700 bg-slate-800/80 hover:bg-rose-500/15 hover:border-rose-500/30 text-slate-300 hover:text-rose-300 text-xs font-semibold transition disabled:opacity-50"
+              title="Sair e reiniciar sessão de metas"
+            >
+              {isLoggingOut ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-400" />
+              ) : (
+                <LogOut className="w-3.5 h-3.5 text-slate-400" />
+              )}
+              <span>{isLoggingOut ? 'Saindo...' : 'Sair'}</span>
+            </button>
+          )}
+          <div className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-semibold ${badge.color}`}>
+            {badge.icon}
+            <span>{badge.label}</span>
+          </div>
         </div>
       </div>
 
@@ -174,6 +230,12 @@ export function CalorieHeader({ summary, activeTarget, currentDate }: CalorieHea
           </span>
         </div>
       </div>
+
+      <TargetWizardModal
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+        canClose={hasActiveTarget}
+      />
     </div>
   );
 }

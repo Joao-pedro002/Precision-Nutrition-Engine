@@ -103,4 +103,23 @@ class FoodControllerIntegrationTest {
                 .andExpect(jsonPath("$.calorieDriftWarning", is(true)))
                 .andExpect(jsonPath("$.warningMessage", notNullValue()));
     }
+
+    @Test
+    @DisplayName("Integração Épica 2: Deve retornar Top 5 Quick Substitutions com menor Calorie Drift via REST")
+    void testQuickSubstitutionsEndpoint() throws Exception {
+        List<Food> frangos = foodRepository.searchByName("Frango, peito, sem pele, grelhado", PageRequest.of(0, 1)).getContent();
+        assertFalse(frangos.isEmpty(), "Frango deve existir na base");
+        Food frango = frangos.get(0);
+
+        mockMvc.perform(get("/api/v1/nutrition/quick-substitutions")
+                        .param("foodId", frango.getId().toString())
+                        .param("weightG", "150.00")
+                        .param("limit", "5")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", not(empty())))
+                .andExpect(jsonPath("$[0].targetFoodName", notNullValue()))
+                .andExpect(jsonPath("$[0].calculatedWeightG", greaterThan(0.0)))
+                .andExpect(jsonPath("$[0].deltaKcal", notNullValue()));
+    }
 }

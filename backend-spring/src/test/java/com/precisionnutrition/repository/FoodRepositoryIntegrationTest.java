@@ -38,4 +38,21 @@ class FoodRepositoryIntegrationTest {
         assertNotNull(bread.getMicronutrients());
         assertNotNull(bread.getMicronutrients().sodiumMg(), "JSONB de micronutrientes deve estar desserializado");
     }
+
+    @Test
+    @DisplayName("Integração Épica 2: Deve buscar candidatos por foodGroup e respeitar ordenação de popularidade")
+    void testFindCandidatesByFoodGroup() {
+        var candidates = foodRepository.findCandidatesByFoodGroup(
+                "PROTEINA_ANIMAL",
+                java.util.UUID.randomUUID(),
+                PageRequest.of(0, 5)
+        );
+
+        assertNotNull(candidates);
+        if (!candidates.isEmpty()) {
+            // Primeiro item deve ter popularidade alta (>= 500)
+            assertTrue(candidates.get(0).getPopularityScore() >= 10);
+            assertEquals("PROTEINA_ANIMAL", candidates.get(0).getFoodGroup());
+        }
+    }
 }

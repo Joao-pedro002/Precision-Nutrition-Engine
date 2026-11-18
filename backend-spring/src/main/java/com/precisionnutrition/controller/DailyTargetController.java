@@ -1,8 +1,11 @@
 package com.precisionnutrition.controller;
 
 import com.precisionnutrition.model.dto.DailyTargetRequest;
+import com.precisionnutrition.model.dto.TargetCalculationRequest;
+import com.precisionnutrition.model.dto.TargetCalculationResponse;
 import com.precisionnutrition.model.entity.DailyTarget;
 import com.precisionnutrition.service.DailyTargetService;
+import com.precisionnutrition.service.TargetWizardService;
 import com.precisionnutrition.util.AppConstants;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +24,19 @@ import java.util.UUID;
 public class DailyTargetController {
 
     private final DailyTargetService dailyTargetService;
+    private final TargetWizardService targetWizardService;
+
+    @PostMapping("/calculate")
+    public ResponseEntity<TargetCalculationResponse> calculateTargets(@Valid @RequestBody TargetCalculationRequest request) {
+        TargetCalculationResponse response = targetWizardService.calculateTargets(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/calculate-and-apply")
+    public ResponseEntity<DailyTarget> calculateAndApplyTarget(@Valid @RequestBody TargetCalculationRequest request) {
+        DailyTarget applied = targetWizardService.calculateAndApply(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(applied);
+    }
 
     @GetMapping("/active")
     public ResponseEntity<DailyTarget> getActiveTarget(@RequestParam(name = "userId", required = false) UUID userId) {
@@ -50,5 +66,12 @@ public class DailyTargetController {
         UUID resolvedUserId = userId != null ? userId : AppConstants.DEFAULT_USER_ID;
         DailyTarget activated = dailyTargetService.activateTarget(id, resolvedUserId);
         return ResponseEntity.ok(activated);
+    }
+
+    @PostMapping("/deactivate")
+    public ResponseEntity<Void> deactivateTarget(@RequestParam(name = "userId", required = false) UUID userId) {
+        UUID resolvedUserId = userId != null ? userId : AppConstants.DEFAULT_USER_ID;
+        dailyTargetService.deactivateActiveTarget(resolvedUserId);
+        return ResponseEntity.noContent().build();
     }
 }

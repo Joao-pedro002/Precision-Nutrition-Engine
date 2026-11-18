@@ -29,6 +29,57 @@ interface SingleMealCardProps {
   onOpenOffDiet: (mealName: string) => void;
 }
 
+function getHouseholdPortionLabel(foodName: string, weightG: number): string | null {
+  if (!foodName || !weightG || weightG <= 0) return null;
+  const lower = foodName.toLowerCase();
+
+  if (lower.includes('clara')) {
+    const qty = Math.round(weightG / 30);
+    return qty > 0 ? `${qty} ${qty === 1 ? 'unidade' : 'unidades'}` : null;
+  }
+  if (lower.includes('ovo')) {
+    const qty = Math.round(weightG / 50);
+    return qty > 0 ? `${qty} ${qty === 1 ? 'unidade' : 'unidades'}` : null;
+  }
+  if (lower.includes('pão, francês') || lower.includes('pao frances')) {
+    const qty = Math.round(weightG / 50);
+    return qty > 0 ? `${qty} ${qty === 1 ? 'unidade' : 'unidades'}` : null;
+  }
+  if (lower.includes('pão') || lower.includes('pao')) {
+    const qty = Math.round(weightG / 25);
+    return qty > 0 ? `${qty} ${qty === 1 ? 'fatia' : 'fatias'}` : null;
+  }
+  if (lower.includes('leite')) {
+    const qty = Math.round((weightG / 200) * 10) / 10;
+    return qty === 1 ? '1 copo (200ml)' : `${qty} copos`;
+  }
+  if (lower.includes('arroz')) {
+    const qty = Math.round(weightG / 25);
+    return qty > 0 ? `${qty} ${qty === 1 ? 'colher de sopa' : 'colheres de sopa'}` : null;
+  }
+  if (lower.includes('feijão') || lower.includes('feijao')) {
+    const qty = Math.round((weightG / 130) * 10) / 10;
+    return qty === 1 ? '1 concha' : `${qty} conchas`;
+  }
+  if (lower.includes('banana')) {
+    const qty = Math.round(weightG / 100);
+    return qty > 0 ? `${qty} ${qty === 1 ? 'unidade' : 'unidades'}` : null;
+  }
+  if (lower.includes('azeite')) {
+    const qty = Math.round(weightG / 13);
+    return qty > 0 ? `${qty} ${qty === 1 ? 'colher de sopa' : 'colheres de sopa'}` : null;
+  }
+  if (lower.includes('aveia')) {
+    const qty = Math.round(weightG / 15);
+    return qty > 0 ? `${qty} ${qty === 1 ? 'colher de sopa' : 'colheres de sopa'}` : null;
+  }
+  if (lower.includes('frango') || lower.includes('carne') || lower.includes('patinho')) {
+    const qty = Math.round((weightG / 100) * 10) / 10;
+    return qty === 1 ? '1 filé médio' : `${qty} filés`;
+  }
+  return null;
+}
+
 function SingleMealCard({
   meal,
   currentDate,
@@ -204,19 +255,33 @@ function SingleMealCard({
 
           {/* Lista de Alimentos da Opção Selecionada */}
           <div className="border border-slate-800/80 rounded-2xl overflow-hidden bg-slate-950/40 divide-y divide-slate-800/50">
-            {activeOption.items.map((item) => (
+            {activeOption.items.map((item) => {
+              const portionLabel = getHouseholdPortionLabel(item.foodName, item.weightG);
+
+              return (
               <div
                 key={item.id}
                 className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-900/40 transition-colors"
               >
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-bold text-white truncate">
                       {item.foodName}
                     </span>
-                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
-                      {item.weightG.toFixed(0)}g
-                    </span>
+                    {portionLabel ? (
+                      <>
+                        <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-lg border border-emerald-500/30">
+                          {portionLabel}
+                        </span>
+                        <span className="text-[10px] text-gray-500 font-mono">
+                          ({item.weightG.toFixed(0)}g)
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-[10px] font-mono text-gray-400 bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700/60">
+                        {item.weightG.toFixed(0)}g
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400">
@@ -249,7 +314,8 @@ function SingleMealCard({
                   <span>Substituir</span>
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Totais Nutricionais da Opção */}

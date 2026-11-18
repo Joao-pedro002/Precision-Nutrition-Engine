@@ -10,11 +10,12 @@ import com.precisionnutrition.model.enums.MacroTarget;
 import com.precisionnutrition.repository.FoodRepository;
 import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @NoArgsConstructor
@@ -364,5 +365,102 @@ public class NutritionMathServiceImpl implements NutritionMathService {
         } else {
             return DominantMacro.FAT;
         }
+    }
+
+    @Override
+    public List<QuickSubstitutionDto> getQuickSubstitutions(
+            UUID foodId,
+            BigDecimal weightG,
+            MacroTarget targetMacroOverride,
+            int limit
+    ) {
+        if (foodRepository == null) {
+            throw new IllegalStateException("FoodRepository não injetado no NutritionMathService.");
+        }
+        Food sourceFood = foodRepository.findById(foodId)
+                .orElseThrow(() -> new FoodNotFoundException("Alimento de origem não encontrado: " + foodId));
+
+        BigDecimal effectiveWeight = (weightG != null && weightG.compareTo(BigDecimal.ZERO) > 0)
+                ? weightG
+                : ONE_HUNDRED;
+
+        int effectiveLimit = (limit > 0) ? Math.min(limit, 20) : 5;
+
+        // Busca candidatos no mesmo grupo culinário ou no mesmo macro dominante
+        Set<UUID> seenIds = new HashSet<>();
+        List<Food> candidates = new ArrayList<>();
+
+        if (sourceFood.getFoodGroup() != null && !sourceFood.getFoodGroup().isBlank()) {
+            List<Food> groupCandidates = foodRepository.findCandidatesByFoodGroup(
+                    sourceFood.getFoodGroup(),
+                    sourceFood.getId(),
+                    PageRequest.of(0, 30)
+            );
+            for (Food f : groupCandidates) {
+                if (seenIds.add(f.getId())) {
+                    candidates.add(f);
+                }
+            }
+        }
+
+        if (candidates.size() < 10) {
+            List<Food> macroCandidates = foodRepository.findCandidatesByDominantMacro(
+                    sourceFood.getDominantMacro(),
+                    sourceFood.getId(),
+                    PageRequest.of(0, 30)
+            );
+            for (Food f : macroCandidates) {
+                if (seenIds.add(f.getId())) {
+                    candidates.add(f);
+                }
+            }
+        }
+
+        List<QuickSubstitutionDto> substitutions = new ArrayList<>();
+
+        for (Food targetFood : candidates) {
+            try {
+                SubstitutionResult result = calculateEquivalentSubstitution(
+                        sourceFood,
+                        effectiveWeight,
+                        targetFood,
+                        targetMacroOverride
+                );
+
+                List<FoodPortionDto> portions = targetFood.getPortions() != null
+                        ? targetFood.getPortions().stream()
+                        .map(p -> new FoodPortionDto(p.getId(), p.getPortionName(), p.getWeightG()))
+                        .toList()
+                        : Collections.emptyList();
+
+                substitutions.add(new QuickSubstitutionDto(
+                        targetFood.getId(),
+                        targetFood.getName(),
+                        targetFood.getFoodGroup(),
+                        result.targetFood().weightG(),
+                        result.targetFood().energyKcal(),
+                        result.targetFood().proteinG(),
+                        result.targetFood().carbohydrateG(),
+                        result.targetFood().lipidG(),
+                        result.deltaKcal(),
+                        result.deltaProteinG(),
+                        result.deltaCarbohydrateG(),
+                        result.deltaLipidG(),
+                        result.calorieDriftPercent(),
+                        result.calorieDriftWarning(),
+                        result.warningMessage(),
+                        portions
+                ));
+            } catch (IncompatibleFoodSubstitutionException | IllegalArgumentException ignored) {
+                // Candidato biologicamente incompatível para substituição equivalente
+            }
+        }
+
+        // Ordena por menor módulo de desvio calórico (|Δkcal| ASC)
+        substitutions.sort(Comparator.comparing(dto -> dto.deltaKcal().abs()));
+
+        return substitutions.stream()
+                .limit(effectiveLimit)
+                .toList();
     }
 }

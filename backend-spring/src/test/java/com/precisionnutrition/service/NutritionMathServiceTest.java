@@ -1,23 +1,29 @@
 package com.precisionnutrition.service;
 
 import com.precisionnutrition.exception.IncompatibleFoodSubstitutionException;
-import com.precisionnutrition.model.dto.CaloricZoneResult;
-import com.precisionnutrition.model.dto.MicronutrientsData;
-import com.precisionnutrition.model.dto.NutrientAuditResult;
-import com.precisionnutrition.model.dto.SubstitutionResult;
+import com.precisionnutrition.model.dto.*;
 import com.precisionnutrition.model.entity.Food;
+import com.precisionnutrition.model.entity.FoodPortion;
 import com.precisionnutrition.model.enums.CalorieZone;
 import com.precisionnutrition.model.enums.DominantMacro;
 import com.precisionnutrition.model.enums.FoodSource;
 import com.precisionnutrition.model.enums.MacroTarget;
+import com.precisionnutrition.repository.FoodRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
 
 class NutritionMathServiceTest {
 
@@ -242,5 +248,69 @@ class NutritionMathServiceTest {
         );
 
         assertEquals(MacroTarget.KCAL, result.matchedMacro());
+    }
+
+    @Test
+    @DisplayName("Épica 2: Deve retornar Top 5 alimentos alternativos ordenados pelo menor Calorie Drift")
+    void testQuickSubstitutionsOrderedByMinimalCalorieDrift() {
+        FoodRepository mockRepo = Mockito.mock(FoodRepository.class);
+        NutritionMathService serviceWithRepo = new NutritionMathServiceImpl(mockRepo);
+
+        UUID sourceId = UUID.randomUUID();
+        Food chickenBreast = Food.builder()
+                .id(sourceId)
+                .name("Peito de Frango")
+                .foodGroup("PROTEINA_ANIMAL")
+                .dominantMacro(DominantMacro.PROTEIN)
+                .proteinG(new BigDecimal("32.00"))
+                .carbohydrateG(BigDecimal.ZERO)
+                .lipidG(new BigDecimal("2.50"))
+                .energyKcal(new BigDecimal("159.00"))
+                .build();
+
+        // Candidato 1: Tilápia (Praticamente sem gordura extra -> menor drift)
+        Food tilapia = Food.builder()
+                .id(UUID.randomUUID())
+                .name("Tilápia Grelhada")
+                .foodGroup("PROTEINA_ANIMAL")
+                .dominantMacro(DominantMacro.PROTEIN)
+                .proteinG(new BigDecimal("26.00"))
+                .carbohydrateG(BigDecimal.ZERO)
+                .lipidG(new BigDecimal("2.00"))
+                .energyKcal(new BigDecimal("128.00"))
+                .portions(List.of(FoodPortion.builder().portionName("1 Filé").weightG(new BigDecimal("120.00")).build()))
+                .build();
+
+        // Candidato 2: Ovo Cozido (Possui mais gordura -> maior drift)
+        Food egg = Food.builder()
+                .id(UUID.randomUUID())
+                .name("Ovo Cozido")
+                .foodGroup("PROTEINA_ANIMAL")
+                .dominantMacro(DominantMacro.PROTEIN)
+                .proteinG(new BigDecimal("13.00"))
+                .carbohydrateG(new BigDecimal("1.00"))
+                .lipidG(new BigDecimal("10.00"))
+                .energyKcal(new BigDecimal("146.00"))
+                .portions(List.of(FoodPortion.builder().portionName("1 Unidade").weightG(new BigDecimal("50.00")).build()))
+                .build();
+
+        when(mockRepo.findById(sourceId)).thenReturn(Optional.of(chickenBreast));
+        when(mockRepo.findCandidatesByFoodGroup(eq("PROTEINA_ANIMAL"), eq(sourceId), any(Pageable.class)))
+                .thenReturn(List.of(egg, tilapia));
+
+        List<QuickSubstitutionDto> quickSubs = serviceWithRepo.getQuickSubstitutions(
+                sourceId,
+                new BigDecimal("150.00"),
+                null,
+                5
+        );
+
+        assertNotNull(quickSubs);
+        assertEquals(2, quickSubs.size());
+        // Tilápia deve vir primeiro por ter menor módulo de Calorie Drift que o Ovo
+        assertEquals("Tilápia Grelhada", quickSubs.get(0).targetFoodName());
+        assertEquals("Ovo Cozido", quickSubs.get(1).targetFoodName());
+        assertTrue(quickSubs.get(0).deltaKcal().abs().compareTo(quickSubs.get(1).deltaKcal().abs()) < 0);
+        assertFalse(quickSubs.get(0).portions().isEmpty());
     }
 }

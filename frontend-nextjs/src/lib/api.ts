@@ -8,6 +8,10 @@ import {
   CheckMealRequest,
   OffDietEntryRequest,
   DailyLogEntry,
+  TargetCalculationRequest,
+  TargetCalculationResponse,
+  QuickSubstitutionDto,
+  DailyTarget,
 } from '@/types/nutrition';
 
 const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api/v1';
@@ -179,4 +183,131 @@ export async function applyItemSubstitutionApi(
       weightG: newWeightG,
     }),
   });
+}
+
+/**
+ * Simula o cálculo de BMR, TDEE e macros via Target Wizard (Mifflin-St Jeor).
+ */
+export async function calculateTargetWizardApi(
+  request: TargetCalculationRequest
+): Promise<TargetCalculationResponse> {
+  const response = await fetch(`${API_BASE_URL}/targets/calculate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao calcular metas [HTTP ${response.status}]: ${errorText}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Calcula e aplica as metas calculadas via Target Wizard como protocolo ativo no back-end.
+ */
+export async function applyCalculatedTargetApi(
+  request: TargetCalculationRequest
+): Promise<DailyTarget> {
+  const response = await fetch(`${API_BASE_URL}/targets/calculate-and-apply`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao aplicar novo protocolo ativo [HTTP ${response.status}]: ${errorText}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Salva uma meta personalizada diretamente (ex: após ajuste no slider de calorias).
+ */
+export async function applyCustomTargetApi(targetData: {
+  userId?: string;
+  targetKcalMin: number;
+  targetKcalMax: number;
+  maintenanceKcalCeiling: number;
+  targetProteinG: number;
+  targetCarbohydrateG: number;
+  targetLipidG: number;
+  targetFiberG: number;
+  targetWaterMl: number;
+  isActive: boolean;
+}): Promise<DailyTarget> {
+  const response = await fetch(`${API_BASE_URL}/targets`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify(targetData),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao salvar meta personalizada [HTTP ${response.status}]: ${errorText}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Consulta as 5 melhores alternativas de substituição rápida do mesmo grupo culinário com menor Calorie Drift.
+ */
+export async function getQuickSubstitutionsApi(
+  foodId: string,
+  weightG?: number,
+  targetMacroOverride?: string | null,
+  limit: number = 5
+): Promise<QuickSubstitutionDto[]> {
+  const params = new URLSearchParams({
+    foodId,
+    limit: limit.toString(),
+  });
+  if (weightG) params.append('weightG', weightG.toString());
+  if (targetMacroOverride) params.append('targetMacroOverride', targetMacroOverride);
+
+  const response = await fetch(`${API_BASE_URL}/nutrition/quick-substitutions?${params.toString()}`, {
+    cache: 'no-store',
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao buscar trocas rápidas [HTTP ${response.status}]: ${errorText}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Desativa a meta ativa do usuário no back-end (Logout / Reset de Sessão).
+ */
+export async function deactivateActiveTargetApi(userId?: string): Promise<void> {
+  const queryParam = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+  const response = await fetch(`${API_BASE_URL}/targets/deactivate${queryParam}`, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao desativar meta [HTTP ${response.status}]: ${errorText}`);
+  }
 }

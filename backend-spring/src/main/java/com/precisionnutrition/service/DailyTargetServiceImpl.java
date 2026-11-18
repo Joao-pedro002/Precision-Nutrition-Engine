@@ -43,10 +43,10 @@ public class DailyTargetServiceImpl implements DailyTargetService {
         boolean willBeActive = Boolean.TRUE.equals(request.isActive());
 
         if (willBeActive) {
-            // Desativa qualquer protocolo ativo anterior (respeitando o índice parcial único)
+            // Desativa qualquer protocolo ativo anterior (respeitando o índice parcial único) com flush imediato
             dailyTargetRepository.findByUserIdAndIsActiveTrue(effectiveUser).ifPresent(target -> {
                 target.setActive(false);
-                dailyTargetRepository.save(target);
+                dailyTargetRepository.saveAndFlush(target);
             });
         }
 
@@ -79,15 +79,25 @@ public class DailyTargetServiceImpl implements DailyTargetService {
             throw new IllegalArgumentException("O protocolo de metas não pertence ao usuário.");
         }
 
-        // Desativa protocolo ativo existente
+        // Desativa protocolo ativo existente com flush imediato para o PostgreSQL
         dailyTargetRepository.findByUserIdAndIsActiveTrue(effectiveUser).ifPresent(currentActive -> {
             if (!currentActive.getId().equals(targetId)) {
                 currentActive.setActive(false);
-                dailyTargetRepository.save(currentActive);
+                dailyTargetRepository.saveAndFlush(currentActive);
             }
         });
 
         target.setActive(true);
-        return dailyTargetRepository.save(target);
+        return dailyTargetRepository.saveAndFlush(target);
+    }
+
+    @Override
+    @Transactional
+    public void deactivateActiveTarget(UUID userId) {
+        UUID effectiveUser = (userId != null) ? userId : AppConstants.DEFAULT_USER_ID;
+        dailyTargetRepository.findByUserIdAndIsActiveTrue(effectiveUser).ifPresent(target -> {
+            target.setActive(false);
+            dailyTargetRepository.saveAndFlush(target);
+        });
     }
 }

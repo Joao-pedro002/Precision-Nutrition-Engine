@@ -4,6 +4,7 @@ import com.precisionnutrition.model.dto.*;
 import com.precisionnutrition.model.entity.DailyLog;
 import com.precisionnutrition.model.entity.DailyLogEntry;
 import com.precisionnutrition.service.DailyLogService;
+import com.precisionnutrition.service.DailyLogTtlCleanupService;
 import com.precisionnutrition.util.AppConstants;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -23,6 +25,7 @@ import java.util.UUID;
 public class DailyLogController {
 
     private final DailyLogService dailyLogService;
+    private final DailyLogTtlCleanupService ttlCleanupService;
 
     @GetMapping("/{date}")
     public ResponseEntity<DailyLogResponse> getDailyLog(
@@ -65,5 +68,18 @@ public class DailyLogController {
     public ResponseEntity<Void> removeEntry(@PathVariable UUID entryId) {
         dailyLogService.removeEntry(entryId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/purge-old")
+    public ResponseEntity<Map<String, Object>> purgeOldLogs(
+            @RequestParam(name = "days", required = false, defaultValue = "6") int days
+    ) {
+        int purged = ttlCleanupService.purgeLogsOlderThanDays(days);
+        LocalDate cutoffDate = LocalDate.now().minusDays(days);
+        return ResponseEntity.ok(Map.of(
+                "purgedCount", purged,
+                "cutoffDate", cutoffDate.toString(),
+                "message", "Expurgo de registros com TTL de " + days + " dias concluído com sucesso."
+        ));
     }
 }

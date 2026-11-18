@@ -8,6 +8,11 @@ import {
   calculateSubstitutionApi,
   applyItemSubstitutionApi,
   searchFoodsApi,
+  calculateTargetWizardApi,
+  applyCalculatedTargetApi,
+  applyCustomTargetApi,
+  getQuickSubstitutionsApi,
+  deactivateActiveTargetApi,
 } from '@/lib/api';
 import {
   WaterUpdateResponse,
@@ -15,6 +20,10 @@ import {
   SubstitutionResult,
   OffDietEntryRequest,
   Food,
+  TargetCalculationRequest,
+  TargetCalculationResponse,
+  QuickSubstitutionDto,
+  DailyTarget,
 } from '@/types/nutrition';
 
 /**
@@ -83,5 +92,64 @@ export async function applyItemSubstitutionServerAction(
   optionNumber: number
 ): Promise<void> {
   await applyItemSubstitutionApi(mealId, currentItemId, newFoodId, newWeightG, optionNumber);
+  revalidatePath('/');
+}
+
+/**
+ * Server Action: Cálculo de BMR/TDEE via Target Wizard
+ */
+export async function calculateTargetWizardServerAction(
+  request: TargetCalculationRequest
+): Promise<TargetCalculationResponse> {
+  return await calculateTargetWizardApi(request);
+}
+
+/**
+ * Server Action: Aplicação direta das metas calculadas (Mifflin-St Jeor)
+ */
+export async function applyCalculatedTargetServerAction(
+  request: TargetCalculationRequest
+): Promise<DailyTarget> {
+  const result = await applyCalculatedTargetApi(request);
+  revalidatePath('/');
+  return result;
+}
+
+/**
+ * Server Action: Aplicação de metas ajustadas manualmente pelo slider
+ */
+export async function applyCustomTargetServerAction(targetData: {
+  userId?: string;
+  targetKcalMin: number;
+  targetKcalMax: number;
+  maintenanceKcalCeiling: number;
+  targetProteinG: number;
+  targetCarbohydrateG: number;
+  targetLipidG: number;
+  targetFiberG: number;
+  targetWaterMl: number;
+  isActive: boolean;
+}): Promise<DailyTarget> {
+  const result = await applyCustomTargetApi(targetData);
+  revalidatePath('/');
+  return result;
+}
+
+/**
+ * Server Action: Consulta de sugestões inteligentes de troca rápida (Top 5)
+ */
+export async function getQuickSubstitutionsServerAction(
+  foodId: string,
+  weightG?: number,
+  targetMacroOverride?: string | null
+): Promise<QuickSubstitutionDto[]> {
+  return await getQuickSubstitutionsApi(foodId, weightG, targetMacroOverride, 5);
+}
+
+/**
+ * Server Action: Desativa a meta ativa (Logout / Reset de Sessão)
+ */
+export async function deactivateActiveTargetServerAction(userId?: string): Promise<void> {
+  await deactivateActiveTargetApi(userId);
   revalidatePath('/');
 }

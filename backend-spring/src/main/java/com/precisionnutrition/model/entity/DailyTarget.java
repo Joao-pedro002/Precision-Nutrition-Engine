@@ -1,6 +1,8 @@
 package com.precisionnutrition.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.precisionnutrition.model.dto.MicronutrientsData;
+import com.precisionnutrition.model.enums.TargetSource;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -28,6 +30,12 @@ public class DailyTarget {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "target_source", nullable = false, length = 20)
+    @Builder.Default
+    private TargetSource targetSource = TargetSource.MANUAL;
+
+    @JsonProperty("isActive")
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean isActive = false;

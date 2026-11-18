@@ -116,11 +116,11 @@ export function OffDietModal({ isOpen, onClose, date, mealName }: OffDietModalPr
               Peso Consumido (g)
             </label>
             <input
-              type="number"
-              min="1"
-              max="2000"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={weightG}
-              onChange={(e) => setWeightG(e.target.value)}
+              onChange={(e) => setWeightG(e.target.value.replace(/^0+(?=\d)/, ''))}
               className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-xs text-white focus:border-rose-500 focus:outline-none"
             />
           </div>
@@ -130,11 +130,11 @@ export function OffDietModal({ isOpen, onClose, date, mealName }: OffDietModalPr
               Calorias Totais (kcal)
             </label>
             <input
-              type="number"
-              min="0"
-              max="5000"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={energyKcal}
-              onChange={(e) => setEnergyKcal(e.target.value)}
+              onChange={(e) => setEnergyKcal(e.target.value.replace(/^0+(?=\d)/, ''))}
               className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-xs font-bold text-rose-300 focus:border-rose-500 focus:outline-none"
             />
           </div>
@@ -146,11 +146,10 @@ export function OffDietModal({ isOpen, onClose, date, mealName }: OffDietModalPr
               Proteína (g)
             </label>
             <input
-              type="number"
-              min="0"
-              step="0.5"
+              type="text"
+              inputMode="decimal"
               value={proteinG}
-              onChange={(e) => setProteinG(e.target.value)}
+              onChange={(e) => setProteinG(e.target.value.replace(/^0+(?=\d)/, ''))}
               className="w-full px-2 py-1.5 bg-slate-800/80 border border-slate-700 rounded-xl text-xs text-white text-center focus:border-cyan-500 focus:outline-none"
             />
           </div>
@@ -160,11 +159,10 @@ export function OffDietModal({ isOpen, onClose, date, mealName }: OffDietModalPr
               Carboidrato (g)
             </label>
             <input
-              type="number"
-              min="0"
-              step="0.5"
+              type="text"
+              inputMode="decimal"
               value={carbG}
-              onChange={(e) => setCarbG(e.target.value)}
+              onChange={(e) => setCarbG(e.target.value.replace(/^0+(?=\d)/, ''))}
               className="w-full px-2 py-1.5 bg-slate-800/80 border border-slate-700 rounded-xl text-xs text-white text-center focus:border-amber-500 focus:outline-none"
             />
           </div>
@@ -174,11 +172,10 @@ export function OffDietModal({ isOpen, onClose, date, mealName }: OffDietModalPr
               Gordura (g)
             </label>
             <input
-              type="number"
-              min="0"
-              step="0.5"
+              type="text"
+              inputMode="decimal"
               value={lipidG}
-              onChange={(e) => setLipidG(e.target.value)}
+              onChange={(e) => setLipidG(e.target.value.replace(/^0+(?=\d)/, ''))}
               className="w-full px-2 py-1.5 bg-slate-800/80 border border-slate-700 rounded-xl text-xs text-white text-center focus:border-rose-500 focus:outline-none"
             />
           </div>
@@ -188,11 +185,10 @@ export function OffDietModal({ isOpen, onClose, date, mealName }: OffDietModalPr
               Fibras (g)
             </label>
             <input
-              type="number"
-              min="0"
-              step="0.5"
+              type="text"
+              inputMode="decimal"
               value={fiberG}
-              onChange={(e) => setFiberG(e.target.value)}
+              onChange={(e) => setFiberG(e.target.value.replace(/^0+(?=\d)/, ''))}
               className="w-full px-2 py-1.5 bg-slate-800/80 border border-slate-700 rounded-xl text-xs text-white text-center focus:border-emerald-500 focus:outline-none"
             />
           </div>

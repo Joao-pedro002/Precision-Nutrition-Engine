@@ -72,4 +72,9 @@ public interface NutritionMathService {
      * Calcula dinamicamente o macro dominante com base nas calorias contribuídas (4P, 4C, 9G).
      */
     DominantMacro calculateDominantMacro(BigDecimal proteinG, BigDecimal carbG, BigDecimal lipidG);
+
+    /**
+     * Retorna os Top 5 alimentos alternativos do mesmo grupo culinário com o menor Calorie Drift.
+     */
+    java.util.List<QuickSubstitutionDto> getQuickSubstitutions(UUID foodId, BigDecimal weightG, MacroTarget targetMacroOverride, int limit);
 }

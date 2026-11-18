@@ -129,6 +129,64 @@ $$\text{Razão}_{\text{Na:K}} = \frac{\text{sodium\_mg}}{\text{potassium\_mg}}$$
 
 ---
 
+### 1.7. Onboarding & Target Wizard: Equação de Mifflin-St Jeor & TDEE
+Calcula o Gasto Energético Total Diário (TDEE) e a Taxa Metabólica Basal (BMR) a partir de parâmetros antropométricos e nível de atividade física.
+
+#### Taxa Metabólica Basal (BMR):
+- **Para Homens ($M$):**
+  $$\text{BMR} = 10 \times \text{peso (kg)} + 6.25 \times \text{altura (cm)} - 5 \times \text{idade (anos)} + 5$$
+- **Para Mulheres ($F$):**
+  $$\text{BMR} = 10 \times \text{peso (kg)} + 6.25 \times \text{altura (cm)} - 5 \times \text{idade (anos)} - 161$$
+
+#### Fator de Atividade Física ($f_{\text{act}}$):
+- `SEDENTARY` (Sedentário, pouco ou nenhum exercício): $1.200$
+- `LIGHT` (Exercício leve 1 a 3 dias/semana): $1.375$
+- `MODERATE` (Exercício moderado 3 a 5 dias/semana): $1.550$
+- `VERY_ACTIVE` (Exercício pesado 6 a 7 dias/semana): $1.725$
+- `EXTRA_ACTIVE` (Treino diário intenso ou trabalho braçal duplo): $1.900$
+
+#### Gasto Energético Total (TDEE):
+$$\text{TDEE} = \text{BMR} \times f_{\text{act}}$$
+
+*Exemplo de Calibração:* Homem de 20 anos, 68 kg, 1.73m (173 cm) com atividade moderada:
+$$\text{BMR} = 10(68) + 6.25(173) - 5(20) + 5 = 680 + 1081.25 - 100 + 5 = 1666.25\text{ kcal}$$
+$$\text{TDEE} = 1666.25 \times 1.55 = 2582.69\text{ kcal} \approx 2582\text{ kcal}$$
+
+#### Distribuição de Macros por Objetivo (`DietGoal`):
+1. **Perda de Gordura (`LOSE_FAT`):**
+   - Déficit: $\text{targetKcalMax} = \text{TDEE} \times 0.80$ (-20%)
+   - Piso: $\text{targetKcalMin} = \text{targetKcalMax} - 100\text{ kcal}$
+   - Teto de Manutenção: $\text{maintenanceCeiling} = \text{TDEE}$
+   - Proteína: $2.2\text{g} / \text{kg}$
+   - Lipídios: $0.8\text{g} / \text{kg}$
+   - Carboidratos: $[\text{targetKcalMax} - (4 \times \text{proteína}) - (9 \times \text{lipídios})] / 4$
+2. **Manutenção (`MAINTAIN`):**
+   - $\text{targetKcalMax} = \text{TDEE}$
+   - $\text{targetKcalMin} = \text{TDEE} - 100\text{ kcal}$
+   - $\text{maintenanceCeiling} = \text{TDEE} \times 1.10$
+   - Proteína: $2.0\text{g} / \text{kg}$
+   - Lipídios: $1.0\text{g} / \text{kg}$
+   - Carboidratos: restante $\div 4$
+3. **Hipertrofia Limpa (`CLEAN_BULK`):**
+   - Superávit: $\text{targetKcalMax} = \text{TDEE} \times 1.10$ (+10%)
+   - Piso: $\text{targetKcalMin} = \text{TDEE}$
+   - $\text{maintenanceCeiling} = \text{targetKcalMax} + 200\text{ kcal}$
+   - Proteína: $2.0\text{g} / \text{kg}$
+   - Lipídios: $1.0\text{g} / \text{kg}$
+   - Carboidratos: restante $\div 4$
+
+---
+
+### 1.8. Algoritmo de Troca Rápida Inteligente (Top 5 Menor Calorie Drift)
+Dado um alimento selecionado $A$ com peso planejado $W_A$:
+1. Identifica o grupo alimentar culinário ($A.\text{foodGroup}$). Se nulo, adota $A.\text{dominantMacro}$.
+2. Recupera os alimentos elegíveis pertencentes ao mesmo grupo (ordenados por `popularity_score DESC`).
+3. Para cada candidato $B$, executa o cálculo de equivalência do macronutriente dominante ($W_B = W_A \cdot \frac{M_A}{M_B}$).
+4. Computa o desvio calórico absoluto: $|\Delta\text{kcal}| = |\text{kcal}_B - \text{kcal}_A|$.
+5. Ordena todos os candidatos por menor $|\Delta\text{kcal}|$ ascendente e retorna os **Top 5** com menor desvio (menor propensão ao *Calorie Drift*).
+
+---
+
 ## 🌐 2. Contratos de API RESTful (Spring Boot 3.3)
 
 Todos os endpoints operam sob o prefixo `/api/v1` com cabeçalho `Content-Type: application/json; charset=UTF-8`.
@@ -486,4 +544,101 @@ Retorna em um único payload atômico todas as informações necessárias para r
   - `userId` (UUID, opcional): Padrão `00000000-0000-0000-0000-000000000001`
 
 - **Response 200 OK:** Retorna `DashboardResponse`.
+
+---
+
+### 2.7. Onboarding & Target Wizard (BMR & TDEE)
+
+#### `POST /api/v1/targets/calculate`
+Calcula BMR, TDEE, calorias e distribuição completa de macronutrientes sem persistir.
+
+- **Request Body:**
+```json
+{
+  "gender": "MALE",
+  "ageYears": 20,
+  "weightKg": 68.00,
+  "heightCm": 173.00,
+  "activityLevel": "MODERATE",
+  "goal": "LOSE_FAT"
+}
+```
+
+- **Response 200 OK:**
+```json
+{
+  "bmrKcal": 1666.25,
+  "tdeeKcal": 2582.69,
+  "targetKcalMin": 1966.15,
+  "targetKcalMax": 2066.15,
+  "maintenanceKcalCeiling": 2582.69,
+  "targetProteinG": 149.60,
+  "targetCarbohydrateG": 243.64,
+  "targetLipidG": 54.40,
+  "targetFiberG": 30.00,
+  "targetWaterMl": 3500.00,
+  "targetMicronutrients": { ... },
+  "targetSource": "CALCULATED"
+}
+```
+
+#### `POST /api/v1/targets/calculate-and-apply`
+Calcula as metas via Mifflin-St Jeor e ativa imediatamente como o novo protocolo nutricional do usuário (`targetSource = CALCULATED`), desativando o protocolo anterior.
+
+- **Request Body:** Mesmo do endpoint `/calculate`.
+- **Response 201 Created:** Retorna a entidade `DailyTarget` persistida e ativa.
+
+---
+
+### 2.8. Substituições Rápidas Culinárias (Quick Substitutions Top 5)
+
+#### `GET /api/v1/nutrition/quick-substitutions`
+Retorna as 5 melhores alternativas do mesmo grupo culinário com o menor desvio calórico (*Calorie Drift*).
+
+- **Query Parameters:**
+  - `foodId` (UUID, obrigatório): ID do alimento de origem.
+  - `weightG` (BigDecimal, opcional, padrão 100.00): Peso planejado em gramas.
+  - `targetMacroOverride` (DominantMacro, opcional): Sobrescrita de macro-alvo (`PROTEIN`, `CARB`, `FAT`, `KCAL`).
+  - `limit` (int, opcional, padrão 5): Quantidade máxima de sugestões.
+
+- **Response 200 OK:**
+```json
+[
+  {
+    "targetFood": {
+      "id": "uuid...",
+      "name": "Frango, sobrecoxa, sem pele, cozida",
+      "calculatedWeightG": 162.50,
+      "energyKcal": 271.38,
+      "proteinG": 48.00,
+      "carbohydrateG": 0.00,
+      "lipidG": 8.75
+    },
+    "deltaKcal": 32.88,
+    "deltaProteinG": 0.00,
+    "deltaCarbohydrateG": 0.00,
+    "deltaLipidG": 5.00,
+    "calorieDriftPercent": 13.78,
+    "calorieDriftWarning": true,
+    "warningMessage": "Atenção: A substituição mantém 48.00g de proteína..."
+  }
+]
+```
+
+---
+
+### 2.9. Manutenção & TTL (Admin Clean-up)
+
+#### `POST /api/v1/admin/purge-old-logs`
+Dispara manualmente o expurgo de registros diários anteriores a `CURRENT_DATE - 6` (executado também de forma automática via `@Scheduled` à meia-noite).
+
+- **Response 200 OK:**
+```json
+{
+  "purgedCount": 14,
+  "cutoffDate": "2026-11-11",
+  "message": "Expurgo de registros com TTL de 6 dias concluído com sucesso."
+}
+```
+
 

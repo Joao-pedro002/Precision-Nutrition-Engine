@@ -73,6 +73,8 @@ Armazena os alimentos cadastrados via carga ETL (TACO), via sincronização remo
 | `carbohydrate_g` | `NUMERIC(8,2)` | NÃO | - | `CHECK (carbohydrate_g >= 0)` - Carboidrato disponível em 100g |
 | `lipid_g` | `NUMERIC(8,2)` | NÃO | - | `CHECK (lipid_g >= 0)` - Gorduras totais em 100g |
 | `fiber_g` | `NUMERIC(8,2)` | NÃO | `0.00` | `CHECK (fiber_g >= 0)` - Fibras alimentares em 100g |
+| `popularity_score` | `INT` | NÃO | `10` | Pontuação de relevância para ordenação (1000 para alimentos básicos) |
+| `food_group` | `VARCHAR(50)` | SIM | `NULL` | Grupo alimentar culinário (ex: 'PROTEINA_ANIMAL', 'FRUTA', 'LIQUIDO') |
 | `micronutrients` | `JSONB` | NÃO | `'{}'::jsonb` | Objeto JSONB em conformidade com o Contrato 1 |
 | `created_at` | `TIMESTAMPTZ` | NÃO | `CURRENT_TIMESTAMP` | Data de criação do registro |
 | `updated_at` | `TIMESTAMPTZ` | NÃO | `CURRENT_TIMESTAMP` | Data da última alteração |
@@ -92,6 +94,7 @@ Configuração de metas diárias do usuário. Utiliza um *Partial Unique Index* 
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | NÃO | `uuid_generate_v4()` | Chave primária |
 | `user_id` | `UUID` | NÃO | - | Identificador do usuário proprietário |
+| `target_source` | `VARCHAR(20)` | NÃO | `'MANUAL'` | `CHECK (target_source IN ('CALCULATED', 'MANUAL'))` - Origem da meta |
 | `is_active` | `BOOLEAN` | NÃO | `false` | Se é o protocolo vigente no app |
 | `target_kcal_min` | `NUMERIC(8,2)` | NÃO | - | Piso do Déficit (ex: 2000.00 kcal) |
 | `target_kcal_max` | `NUMERIC(8,2)` | NÃO | - | Teto do Déficit / Meta ideal (ex: 2103.00 kcal) |
@@ -187,6 +190,22 @@ Cada alimento consumido no dia gera uma linha nesta tabela com todos os seus mac
 
 ---
 
+### 2.7. Tabela `food_portions` (Medidas Caseiras e Porções Culinárias)
+Armazena conversões de medidas caseiras populares (ex: 1 ovo = 50g, 1 fatia de pão = 25g, 1 copo de leite = 200ml) vinculadas aos alimentos para facilitar a usabilidade.
+
+| Coluna | Tipo SQL | Nulo? | Padrão | Restrições & Observações |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | `UUID` | NÃO | `uuid_generate_v4()` | Chave primária |
+| `food_id` | `UUID` | NÃO | - | `FOREIGN KEY REFERENCES foods(id) ON DELETE CASCADE` |
+| `portion_name` | `VARCHAR(100)` | NÃO | - | Nome da porção (ex: 'Unidade média', 'Fatia', 'Copo 200ml') |
+| `weight_g` | `NUMERIC(8,2)` | NÃO | - | `CHECK (weight_g > 0)` - Peso correspondente em gramas |
+| `created_at` | `TIMESTAMPTZ` | NÃO | `CURRENT_TIMESTAMP` | Data de criação |
+
+#### Índices de `food_portions`:
+- `CREATE INDEX idx_food_portions_food_id ON food_portions (food_id);`
+
+---
+
 ## 🔄 3. Matriz de Compatibilidade e Mapeamento de Tipos
 
 | PostgreSQL 16 | Java 21 / Hibernate 6 | TypeScript (Next.js) | Regra de Tratamento |
@@ -241,4 +260,18 @@ spring:
 
 > [!IMPORTANT]
 > A propriedade `baseline-on-migrate: true` instrui o Flyway a reconhecer a existência prévia das tabelas criadas pelo script `V1__init_schema.sql` (executado pelo container Docker ou migração), registrando a versão 1 na tabela `flyway_schema_history` sem lançar exceções de integridade estrutural. Além disso, todas as cláusulas do `V1__init_schema.sql` utilizam `IF NOT EXISTS` e `DROP TRIGGER IF EXISTS` para idempotência absoluta.
+
+---
+
+## ⏳ 6. Política de TTL e Retenção de 6 Dias (Offline-First Weekly Board)
+
+O PostgreSQL atua como um quadro de rastreamento operacional da semana corrente. Para evitar acúmulo de dados desnecessários e viabilizar a arquitetura offline-first/resiliente:
+- **Janela de Retenção:** São mantidos apenas os registros de consumo (`daily_logs` e suas `daily_log_entries`) dos últimos **6 dias** (`date >= CURRENT_DATE - 6`).
+- **Rotina de Purge Automático:** Uma tarefa agendada (`@Scheduled(cron = "0 0 0 * * ?")`) executa diariamente à meia-noite removendo fisicamente os registros anteriores:
+  ```sql
+  DELETE FROM daily_logs WHERE date < CURRENT_DATE - 6;
+  ```
+- **Integridade Referencial:** A exclusão de um registro em `daily_logs` propaga automaticamente para `daily_log_entries` através de `ON DELETE CASCADE`.
+- **Preservação de Catálogos:** Metas ativas (`daily_targets`), templates de refeições (`meals` e `meal_items`) e o catálogo de alimentos (`foods` e `food_portions`) **nunca** sofrem expurgo por TTL.
+
 

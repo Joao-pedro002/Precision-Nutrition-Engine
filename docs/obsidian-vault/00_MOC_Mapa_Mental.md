@@ -143,6 +143,11 @@ flowchart TD
 - **Contexto:** Interfaces ricas com modais de busca e substituição sofrem com problemas de acessibilidade (ARIA), foco perdido e conflitos de z-index quando construídas com divs artificiais.
 - **Decisão:** Uso do elemento nativo HTML `<dialog>` manipulado via `ref` com `showModal()` e `close()`. Isso garante foco contido, suporte a tecla `Esc`, renderização automática no *top-layer* do navegador e prevenção de encadeamento de scroll via CSS `overscroll-behavior: contain` e `backdrop` nativo.
 
+### ADR-010: AI Diet Orchestrator & Crowdsourced Regional Pricing (O Waze da Nutrição)
+- **Status:** Aprovado (Versão 3.0)
+- **Contexto:** Volatilidade de preços de alimentos por CEP/região e necessidade de dietas condicionadas a limites financeiros rígidos sem incorrer em alucinações calóricas da IA.
+- **Decisão:** Arquitetura RAG com injeção de contexto financeiro baseado em tabela colaborativa de preços regionais (`food_regional_prices`). A LLM sugere combinações criativas sob medida, mas o motor Java em `BigDecimal` (`NutritionMathService`) executa a validação e ajuste determinístico final obrigatório, garantindo conformidade matemática absoluta. Detalhes em [[ADR-010_AI_Diet_Orchestrator_and_Crowdsourced_Pricing]].
+
 
 
 

@@ -2,6 +2,14 @@ export type DominantMacro = 'PROTEIN' | 'CARB' | 'FAT' | 'BALANCED';
 
 export type CalorieZone = 'BELOW_TARGET' | 'OPTIMAL_DEFICIT' | 'MAINTENANCE_MARGIN' | 'SURPLUS';
 
+export type Gender = 'MALE' | 'FEMALE';
+
+export type ActivityLevel = 'SEDENTARY' | 'LIGHT' | 'MODERATE' | 'VERY_ACTIVE' | 'EXTRA_ACTIVE';
+
+export type DietGoal = 'LOSE_FAT' | 'MAINTAIN' | 'CLEAN_BULK';
+
+export type TargetSource = 'CALCULATED' | 'MANUAL';
+
 export interface CaloricZoneResult {
   consumedKcal: number;
   targetKcalMin: number;
@@ -65,6 +73,7 @@ export interface DailyTarget {
   id: string;
   userId: string;
   isActive: boolean;
+  targetSource?: TargetSource;
   targetKcalMin: number;
   targetKcalMax: number;
   maintenanceKcalCeiling: number;
@@ -147,6 +156,12 @@ export interface WaterUpdateResponse {
   waterPercent: number;
 }
 
+export interface FoodPortion {
+  id: string;
+  portionName: string;
+  weightG: number;
+}
+
 export interface Food {
   id: string;
   name: string;
@@ -160,6 +175,9 @@ export interface Food {
   carbohydrateG: number;
   lipidG: number;
   fiberG: number;
+  popularityScore?: number;
+  foodGroup?: string | null;
+  portions?: FoodPortion[];
   micronutrients: MicronutrientsData;
 }
 
@@ -210,5 +228,57 @@ export interface OffDietEntryRequest {
   lipidG: number;
   fiberG: number;
   userId?: string;
+}
+
+export interface TargetCalculationRequest {
+  userId?: string;
+  gender: Gender;
+  ageYears: number;
+  weightKg: number;
+  heightCm: number;
+  activityLevel: ActivityLevel;
+  goal: DietGoal;
+  proteinMultiplier?: number;
+}
+
+export interface TargetCalculationResponse {
+  gender: Gender;
+  ageYears: number;
+  weightKg: number;
+  heightCm: number;
+  activityLevel: ActivityLevel;
+  goal: DietGoal;
+  bmrKcal: number;
+  tdeeKcal: number;
+  targetKcalMin: number;
+  targetKcalMax: number;
+  maintenanceKcalCeiling: number;
+  targetProteinG: number;
+  targetCarbohydrateG: number;
+  targetLipidG: number;
+  targetFiberG: number;
+  targetWaterMl: number;
+  targetMicronutrients: MicronutrientsData;
+  targetSource: TargetSource;
+  proteinMultiplier?: number;
+}
+
+export interface QuickSubstitutionDto {
+  targetFoodId: string;
+  targetFoodName: string;
+  foodGroup: string | null;
+  calculatedWeightG: number;
+  energyKcal: number;
+  proteinG: number;
+  carbohydrateG: number;
+  lipidG: number;
+  deltaKcal: number;
+  deltaProteinG: number;
+  deltaCarbohydrateG: number;
+  deltaLipidG: number;
+  calorieDriftPercent: number;
+  calorieDriftWarning: boolean;
+  warningMessage: string | null;
+  portions: FoodPortion[];
 }
 
