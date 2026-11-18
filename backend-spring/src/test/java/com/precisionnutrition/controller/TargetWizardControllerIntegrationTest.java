@@ -82,7 +82,8 @@ class TargetWizardControllerIntegrationTest {
     @Test
     @DisplayName("Integração: Deve desativar meta ativa via POST /api/v1/targets/deactivate")
     void testDeactivateTargetEndpoint() throws Exception {
-        mockMvc.perform(post("/api/v1/targets/deactivate"))
+        UUID testUser = UUID.randomUUID();
+        mockMvc.perform(post("/api/v1/targets/deactivate").param("userId", testUser.toString()))
                 .andExpect(status().isNoContent());
     }
 

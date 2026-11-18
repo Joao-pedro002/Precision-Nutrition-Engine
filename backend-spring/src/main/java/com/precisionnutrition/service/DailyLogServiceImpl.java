@@ -237,9 +237,13 @@ public class DailyLogServiceImpl implements DailyLogService {
             food = foodRepository.save(food);
         }
 
+        Meal meal = (request.mealId() != null)
+                ? mealRepository.findById(request.mealId()).orElse(null)
+                : null;
+
         DailyLogEntry entry = DailyLogEntry.builder()
                 .dailyLog(dailyLog)
-                .meal(null)
+                .meal(meal)
                 .food(food)
                 .foodNameSnapshot(food.getName())
                 .weightConsumedG(weight.setScale(2, RoundingMode.HALF_UP))

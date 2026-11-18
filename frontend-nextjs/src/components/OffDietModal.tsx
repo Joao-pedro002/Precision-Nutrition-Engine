@@ -8,10 +8,12 @@ interface OffDietModalProps {
   isOpen: boolean;
   onClose: () => void;
   date: string;
+  mealId?: string | null;
   mealName?: string;
+  onSuccess?: (entry: { mealId: string; customName: string; energyKcal: number }) => void;
 }
 
-export function OffDietModal({ isOpen, onClose, date, mealName }: OffDietModalProps) {
+export function OffDietModal({ isOpen, onClose, date, mealId, mealName, onSuccess }: OffDietModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -43,18 +45,34 @@ export function OffDietModal({ isOpen, onClose, date, mealName }: OffDietModalPr
     e.preventDefault();
     if (!name.trim()) return;
 
+    const parsedWeight = Number(weightG) || 100;
+    const parsedKcal = Number(energyKcal) || 0;
+    const parsedProtein = Number(proteinG) || 0;
+    const parsedCarb = Number(carbG) || 0;
+    const parsedLipid = Number(lipidG) || 0;
+    const parsedFiber = Number(fiberG) || 0;
+
     startTransition(async () => {
       try {
         await addOffDietServerAction(date, {
+          mealId: mealId || null,
           foodId: null,
           customName: name.trim(),
-          weightConsumedG: Number(weightG) || 100,
-          energyKcal: Number(energyKcal) || 0,
-          proteinG: Number(proteinG) || 0,
-          carbohydrateG: Number(carbG) || 0,
-          lipidG: Number(lipidG) || 0,
-          fiberG: Number(fiberG) || 0,
+          weightConsumedG: parsedWeight,
+          energyKcal: parsedKcal,
+          proteinG: parsedProtein,
+          carbohydrateG: parsedCarb,
+          lipidG: parsedLipid,
+          fiberG: parsedFiber,
         });
+
+        if (mealId && onSuccess) {
+          onSuccess({
+            mealId,
+            customName: name.trim(),
+            energyKcal: parsedKcal,
+          });
+        }
         onClose();
       } catch (err) {
         console.error('Erro ao adicionar refeição livre:', err);

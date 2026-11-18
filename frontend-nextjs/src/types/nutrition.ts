@@ -219,6 +219,7 @@ export interface CheckMealRequest {
 }
 
 export interface OffDietEntryRequest {
+  mealId?: string | null;
   foodId?: string | null;
   customName?: string;
   weightConsumedG: number;

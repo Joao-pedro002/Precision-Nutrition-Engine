@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 public record OffDietEntryRequest(
+        UUID mealId,
         UUID foodId,
         String customName,
 
@@ -18,4 +19,18 @@ public record OffDietEntryRequest(
         BigDecimal lipidG,
         BigDecimal fiberG,
         UUID userId
-) {}
+) {
+    public OffDietEntryRequest(
+            UUID foodId,
+            String customName,
+            BigDecimal weightConsumedG,
+            BigDecimal energyKcal,
+            BigDecimal proteinG,
+            BigDecimal carbohydrateG,
+            BigDecimal lipidG,
+            BigDecimal fiberG,
+            UUID userId
+    ) {
+        this(null, foodId, customName, weightConsumedG, energyKcal, proteinG, carbohydrateG, lipidG, fiberG, userId);
+    }
+}
