@@ -7,8 +7,10 @@ import java.math.BigDecimal;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record UsdaNutrient(
+        @JsonProperty("nutrientId") Integer nutrientId,
         @JsonProperty("nutrientNumber") String nutrientNumber,
         @JsonProperty("nutrientName") String nutrientName,
         @JsonProperty("value") BigDecimal value,
-        @JsonProperty("unitName") String unitName
+        @JsonProperty("unitName") String unitName,
+        @JsonProperty("derivationCode") String derivationCode
 ) {}

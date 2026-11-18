@@ -5,6 +5,7 @@ import com.precisionnutrition.model.entity.Food;
 import com.precisionnutrition.model.enums.DominantMacro;
 import com.precisionnutrition.model.enums.FoodSource;
 import com.precisionnutrition.service.FoodService;
+import com.precisionnutrition.service.FoodSyncService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -25,6 +27,7 @@ import java.util.UUID;
 public class FoodController {
 
     private final FoodService foodService;
+    private final FoodSyncService foodSyncService;
 
     @GetMapping("/search")
     public ResponseEntity<Page<Food>> searchFoods(
@@ -35,15 +38,26 @@ public class FoodController {
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "20") int size
     ) {
+        String cleanQuery = (query != null) ? query.trim() : "";
+        if (includeUsda && !cleanQuery.isBlank()) {
+            foodSyncService.searchFoods(cleanQuery);
+        }
+
         PageRequest pageRequest = PageRequest.of(page, size);
         Page<Food> results = foodService.searchFoods(
-                query,
+                cleanQuery,
                 source != null ? source.name() : null,
                 dominantMacro != null ? dominantMacro.name() : null,
-                includeUsda,
+                false,
                 pageRequest
         );
         return ResponseEntity.ok(results);
+    }
+
+    @GetMapping("/sync-search")
+    public ResponseEntity<List<Food>> syncSearchFoods(@RequestParam(name = "q", required = false, defaultValue = "") String query) {
+        List<Food> foods = foodSyncService.searchFoods(query);
+        return ResponseEntity.ok(foods);
     }
 
     @GetMapping("/{id}")

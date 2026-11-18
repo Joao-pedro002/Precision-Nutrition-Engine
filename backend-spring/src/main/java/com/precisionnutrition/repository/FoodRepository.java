@@ -19,6 +19,8 @@ public interface FoodRepository extends JpaRepository<Food, UUID> {
 
     Optional<Food> findBySourceAndExternalId(FoodSource source, String externalId);
 
+    List<Food> findByNameContainingIgnoreCase(String name);
+
     @Query(value = """
         SELECT * FROM foods
         WHERE (:source IS NULL OR source = :source)

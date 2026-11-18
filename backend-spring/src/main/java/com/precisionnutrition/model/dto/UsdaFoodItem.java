@@ -10,6 +10,8 @@ import java.util.List;
 public record UsdaFoodItem(
         @JsonProperty("fdcId") Long fdcId,
         @JsonProperty("description") String description,
+        @JsonProperty("brandOwner") String brandOwner,
+        @JsonProperty("brandName") String brandName,
         @JsonProperty("foodCategory") String foodCategory,
         @JsonProperty("dataType") String dataType,
         @JsonProperty("foodNutrients") List<UsdaNutrient> foodNutrients

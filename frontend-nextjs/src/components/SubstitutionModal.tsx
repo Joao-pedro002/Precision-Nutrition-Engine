@@ -44,7 +44,7 @@ export function SubstitutionModal({
 }: SubstitutionModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [includeUsda, setIncludeUsda] = useState(false);
+  const [includeUsda, setIncludeUsda] = useState(true);
   const [searchResults, setSearchResults] = useState<Food[]>([]);
   const [isSearching, startSearchTransition] = useTransition();
 
@@ -137,7 +137,7 @@ export function SubstitutionModal({
           console.error('Erro na busca de alimentos:', err);
         }
       });
-    }, 250);
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [searchQuery, includeUsda, isOpen, item.foodId]);
