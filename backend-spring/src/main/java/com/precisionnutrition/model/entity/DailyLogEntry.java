@@ -77,4 +77,8 @@ public class DailyLogEntry {
     @CreationTimestamp
     @Column(name = "logged_at", nullable = false, updatable = false)
     private OffsetDateTime loggedAt;
+
+    public BigDecimal getCustomKcal() {
+        return this.consumedEnergyKcal != null ? this.consumedEnergyKcal : BigDecimal.ZERO;
+    }
 }

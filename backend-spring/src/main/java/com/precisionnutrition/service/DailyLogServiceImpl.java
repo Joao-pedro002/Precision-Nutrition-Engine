@@ -291,6 +291,16 @@ public class DailyLogServiceImpl implements DailyLogService {
                 ? mealRepository.findById(request.mealId()).orElse(null)
                 : null;
 
+        if (meal != null) {
+            List<DailyLogEntry> existingForMeal = dailyLog.getEntries().stream()
+                    .filter(e -> e.getMeal() != null && e.getMeal().getId().equals(meal.getId()))
+                    .toList();
+            if (!existingForMeal.isEmpty()) {
+                dailyLog.getEntries().removeAll(existingForMeal);
+                dailyLogEntryRepository.deleteAll(existingForMeal);
+            }
+        }
+
         DailyLogEntry entry = DailyLogEntry.builder()
                 .dailyLog(dailyLog)
                 .meal(meal)
@@ -308,6 +318,7 @@ public class DailyLogServiceImpl implements DailyLogService {
 
         DailyLogEntry savedEntry = dailyLogEntryRepository.save(entry);
         dailyLog.getEntries().add(savedEntry);
+        dailyLogRepository.saveAndFlush(dailyLog);
         log.info("Lançamento fora da dieta adicionado para data {}: {}", date, food.getName());
 
         // Forçar a hidratação dos Proxies JPA para o Jackson não quebrar
@@ -354,7 +365,10 @@ public class DailyLogServiceImpl implements DailyLogService {
 
         if (logEntity != null && logEntity.getEntries() != null) {
             for (DailyLogEntry e : logEntity.getEntries()) {
-                totalKcal = totalKcal.add(e.getConsumedEnergyKcal() != null ? e.getConsumedEnergyKcal() : BigDecimal.ZERO);
+                BigDecimal kcal = e.isOffDiet()
+                        ? e.getCustomKcal()
+                        : (e.getConsumedEnergyKcal() != null ? e.getConsumedEnergyKcal() : BigDecimal.ZERO);
+                totalKcal = totalKcal.add(kcal);
                 totalP = totalP.add(e.getConsumedProteinG() != null ? e.getConsumedProteinG() : BigDecimal.ZERO);
                 totalC = totalC.add(e.getConsumedCarbohydrateG() != null ? e.getConsumedCarbohydrateG() : BigDecimal.ZERO);
                 totalG = totalG.add(e.getConsumedLipidG() != null ? e.getConsumedLipidG() : BigDecimal.ZERO);

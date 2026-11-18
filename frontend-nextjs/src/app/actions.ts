@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import {
   updateWaterApi,
   checkMealOptionApi,
+  uncheckMealOptionApi,
   addOffDietEntryApi,
   calculateSubstitutionApi,
   applyItemSubstitutionApi,
@@ -40,7 +41,7 @@ export async function updateWaterServerAction(
 }
 
 /**
- * Server Action: Check / Uncheck de Refeição (Toggle "Na Dieta")
+ * Server Action: Check de Refeição ("Na Dieta")
  */
 export async function checkMealServerAction(
   date: string,
@@ -48,6 +49,17 @@ export async function checkMealServerAction(
   optionNumber: number
 ): Promise<void> {
   await checkMealOptionApi(date, { mealId, optionNumber });
+  revalidatePath('/');
+}
+
+/**
+ * Server Action: Desmarcar Refeição ou Desfazer Refeição Livre
+ */
+export async function uncheckMealServerAction(
+  date: string,
+  mealId: string
+): Promise<void> {
+  await uncheckMealOptionApi(date, { mealId, optionNumber: 1 });
   revalidatePath('/');
 }
 

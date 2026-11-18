@@ -68,7 +68,10 @@ public class DashboardServiceImpl implements DashboardService {
 
         if (logEntity != null && logEntity.getEntries() != null) {
             for (DailyLogEntry e : logEntity.getEntries()) {
-                totalKcal = totalKcal.add(e.getConsumedEnergyKcal() != null ? e.getConsumedEnergyKcal() : BigDecimal.ZERO);
+                BigDecimal kcal = e.isOffDiet()
+                        ? e.getCustomKcal()
+                        : (e.getConsumedEnergyKcal() != null ? e.getConsumedEnergyKcal() : BigDecimal.ZERO);
+                totalKcal = totalKcal.add(kcal);
                 totalP = totalP.add(e.getConsumedProteinG() != null ? e.getConsumedProteinG() : BigDecimal.ZERO);
                 totalC = totalC.add(e.getConsumedCarbohydrateG() != null ? e.getConsumedCarbohydrateG() : BigDecimal.ZERO);
                 totalG = totalG.add(e.getConsumedLipidG() != null ? e.getConsumedLipidG() : BigDecimal.ZERO);

@@ -135,6 +135,29 @@ export async function checkMealOptionApi(date: string, request: CheckMealRequest
 }
 
 /**
+ * Desmarca uma refeição (remove registros do diário, inclusive fora da dieta).
+ */
+export async function uncheckMealOptionApi(date: string, request: CheckMealRequest): Promise<unknown> {
+  const url = `${API_BASE_URL}/logs/${encodeURIComponent(date)}/uncheck-meal`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao desmarcar refeição [HTTP ${response.status}]: ${errorText}`);
+  }
+
+  return await response.json();
+}
+
+/**
  * Registra lançamento avulso fora da dieta para o dia.
  */
 export async function addOffDietEntryApi(date: string, request: OffDietEntryRequest): Promise<DailyLogEntry> {

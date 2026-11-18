@@ -99,7 +99,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           <MicronutrientMatrix matrix={dashboardData.micronutrients} />
 
           {/* 4. Gestor de Refeições Prescritas com Multi-Opções e Modal de Substituição */}
-          <MealCards meals={dashboardData.meals} currentDate={currentDate} />
+          <MealCards
+            meals={dashboardData.meals}
+            currentDate={currentDate}
+            loggedEntries={dashboardData.loggedEntries}
+          />
         </div>
       )}
     </main>

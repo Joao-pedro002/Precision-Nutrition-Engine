@@ -167,4 +167,57 @@ class DashboardControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.entries", empty()));
     }
+
+    @Test
+    @DisplayName("Integração: Refeição livre deve somar calorias no Dashboard e permitir cancelamento")
+    void testOffDietEntryCalculatesCaloriesInDashboardAndCanBeUndone() throws Exception {
+        LocalDate testDate = LocalDate.now().plusDays(50);
+
+        List<Meal> meals = mealRepository.findByUserIdOrderByOrderIndexAsc(AppConstants.DEFAULT_USER_ID);
+        Meal firstMeal = meals.get(0);
+
+        OffDietEntryRequest offDietRequest = new OffDietEntryRequest(
+                firstMeal.getId(),
+                null,
+                "Almoço Livre Especial",
+                new BigDecimal("500.00"),
+                new BigDecimal("2500.00"),
+                new BigDecimal("80.00"),
+                new BigDecimal("200.00"),
+                new BigDecimal("120.00"),
+                new BigDecimal("10.00"),
+                AppConstants.DEFAULT_USER_ID
+        );
+
+        // 1. Inserir refeição livre vinculada à refeição 1
+        mockMvc.perform(post("/api/v1/logs/" + testDate + "/off-diet")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(offDietRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.consumedEnergyKcal", is(2500.0)));
+
+        // 2. Verificar se o Dashboard reflete as 2500 kcal da refeição livre
+        mockMvc.perform(get("/api/v1/dashboard")
+                        .param("date", testDate.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.summary.consumedEnergyKcal", is(2500.0)))
+                .andExpect(jsonPath("$.summary.consumedProteinG", is(80.0)))
+                .andExpect(jsonPath("$.loggedEntries", hasSize(1)))
+                .andExpect(jsonPath("$.loggedEntries[0].isOffDiet", is(true)))
+                .andExpect(jsonPath("$.loggedEntries[0].mealId", is(firstMeal.getId().toString())));
+
+        // 3. Desfazer / cancelar a refeição livre
+        CheckMealRequest uncheckRequest = new CheckMealRequest(firstMeal.getId(), 1, AppConstants.DEFAULT_USER_ID);
+        mockMvc.perform(post("/api/v1/logs/" + testDate + "/uncheck-meal")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(uncheckRequest)))
+                .andExpect(status().isOk());
+
+        // 4. Confirmar que as calorias voltaram para 0
+        mockMvc.perform(get("/api/v1/dashboard")
+                        .param("date", testDate.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.summary.consumedEnergyKcal", is(0.0)))
+                .andExpect(jsonPath("$.loggedEntries", empty()));
+    }
 }

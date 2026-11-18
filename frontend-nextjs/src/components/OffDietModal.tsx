@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { addOffDietServerAction } from '@/app/actions';
 import { X, UtensilsCrossed, Sparkles, Loader2 } from 'lucide-react';
 
@@ -14,6 +15,7 @@ interface OffDietModalProps {
 }
 
 export function OffDietModal({ isOpen, onClose, date, mealId, mealName, onSuccess }: OffDietModalProps) {
+  const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -73,6 +75,7 @@ export function OffDietModal({ isOpen, onClose, date, mealId, mealName, onSucces
             energyKcal: parsedKcal,
           });
         }
+        router.refresh();
         onClose();
       } catch (err) {
         console.error('Erro ao adicionar refeição livre:', err);

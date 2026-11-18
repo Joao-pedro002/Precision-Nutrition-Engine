@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useTransition } from 'react';
-import { MealDashboard, MealItemCalculated } from '@/types/nutrition';
-import { checkMealServerAction } from '@/app/actions';
+import { useRouter } from 'next/navigation';
+import { MealDashboard, MealItemCalculated, DailyLogEntry } from '@/types/nutrition';
+import { checkMealServerAction, uncheckMealServerAction } from '@/app/actions';
 import { SubstitutionModal } from '@/components/SubstitutionModal';
 import { OffDietModal } from '@/components/OffDietModal';
 import {
@@ -15,11 +16,13 @@ import {
   UtensilsCrossed,
   Sparkles,
   Loader2,
+  Trash2,
 } from 'lucide-react';
 
 interface MealCardsProps {
   meals: MealDashboard[];
   currentDate: string;
+  loggedEntries?: DailyLogEntry[];
 }
 
 interface SingleMealCardProps {
@@ -29,6 +32,7 @@ interface SingleMealCardProps {
   isPendingCheck: boolean;
   onOpenSubstitution: (mealId: string, item: MealItemCalculated, optionNumber: number) => void;
   onOpenOffDiet: (mealId: string, mealName: string) => void;
+  onRemoveOffDiet: (mealId: string) => void;
   offDietEntry?: { customName: string; energyKcal: number } | null;
 }
 
@@ -90,6 +94,7 @@ function SingleMealCard({
   isPendingCheck,
   onOpenSubstitution,
   onOpenOffDiet,
+  onRemoveOffDiet,
   offDietEntry,
 }: SingleMealCardProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
@@ -212,13 +217,19 @@ function SingleMealCard({
               <button
                 type="button"
                 onClick={handleToggleCheck}
-                disabled={isPendingCheck}
-                className={`flex items-center gap-1.5 py-2 px-3.5 rounded-2xl text-xs font-bold transition-all shadow-sm active:scale-95 border ${
-                  isCompleted
-                    ? 'bg-emerald-500 text-slate-950 border-emerald-400 hover:bg-emerald-400'
-                    : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                disabled={isPendingCheck || Boolean(offDietEntry)}
+                className={`flex items-center gap-1.5 py-2 px-3.5 rounded-2xl text-xs font-bold transition-all shadow-sm border ${
+                  Boolean(offDietEntry)
+                    ? 'opacity-50 cursor-not-allowed bg-slate-800 text-slate-500 border-slate-700'
+                    : isCompleted
+                    ? 'bg-emerald-500 text-slate-950 border-emerald-400 hover:bg-emerald-400 active:scale-95'
+                    : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 active:scale-95'
                 }`}
-                title="Marcar como consumida de acordo com o plano"
+                title={
+                  Boolean(offDietEntry)
+                    ? 'Desfaça a refeição livre antes de marcar na dieta'
+                    : 'Marcar como consumida de acordo com o plano'
+                }
               >
                 {isPendingCheck ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -232,15 +243,28 @@ function SingleMealCard({
                 </span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => onOpenOffDiet(meal.id, meal.name)}
-                className="flex items-center gap-1.5 py-2 px-3 rounded-2xl text-xs font-bold text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all active:scale-95"
-                title="Lançar refeição livre / fora da dieta para este horário"
-              >
-                <UtensilsCrossed className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Fora da Dieta</span>
-              </button>
+              {offDietEntry ? (
+                <button
+                  type="button"
+                  onClick={() => onRemoveOffDiet(meal.id)}
+                  disabled={isPendingCheck}
+                  className="flex items-center gap-1.5 py-2 px-3 rounded-2xl text-xs font-bold text-rose-300 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 transition-all active:scale-95 shadow-sm"
+                  title="Desfazer e remover lançamento de refeição livre"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Desfazer Refeição Livre</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onOpenOffDiet(meal.id, meal.name)}
+                  className="flex items-center gap-1.5 py-2 px-3 rounded-2xl text-xs font-bold text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all active:scale-95"
+                  title="Lançar refeição livre / fora da dieta para este horário"
+                >
+                  <UtensilsCrossed className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Fora da Dieta</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -353,7 +377,9 @@ function SingleMealCard({
   );
 }
 
-export function MealCards({ meals, currentDate }: MealCardsProps) {
+export function MealCards({ meals, currentDate, loggedEntries }: MealCardsProps) {
+  const router = useRouter();
+
   // 1. Dicionário de conclusão de refeições (Corrige o Radio Button Bug)
   const [completedMeals, setCompletedMeals] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -384,16 +410,51 @@ export function MealCards({ meals, currentDate }: MealCardsProps) {
     startCheckTransition(async () => {
       try {
         await checkMealServerAction(currentDate, mealId, optionNumber);
+        router.refresh();
       } catch (err) {
         console.error('Erro ao atualizar checagem de refeição:', err);
       }
     });
   };
 
-  // 2. Binding do Modal Fora da Dieta (OffDietModal) com mealId explícito
+  // 2. Binding do Modal Fora da Dieta (OffDietModal) e estado de refeições livres ativas
   const [offDietMealId, setOffDietMealId] = useState<string | null>(null);
   const [offDietMealName, setOffDietMealName] = useState<string>('');
-  const [offDietEntries, setOffDietEntries] = useState<Record<string, { customName: string; energyKcal: number }>>({});
+
+  const [offDietEntries, setOffDietEntries] = useState<Record<string, { customName: string; energyKcal: number }>>(() => {
+    const initial: Record<string, { customName: string; energyKcal: number }> = {};
+    if (loggedEntries) {
+      loggedEntries
+        .filter((e) => e.isOffDiet && e.mealId)
+        .forEach((e) => {
+          if (e.mealId) {
+            initial[e.mealId] = {
+              customName: e.foodNameSnapshot || 'Refeição Livre',
+              energyKcal: e.consumedEnergyKcal || 0,
+            };
+          }
+        });
+    }
+    return initial;
+  });
+
+  // Sincroniza com as entradas salvas do backend quando a página revalida
+  useEffect(() => {
+    const next: Record<string, { customName: string; energyKcal: number }> = {};
+    if (loggedEntries) {
+      loggedEntries
+        .filter((e) => e.isOffDiet && e.mealId)
+        .forEach((e) => {
+          if (e.mealId) {
+            next[e.mealId] = {
+              customName: e.foodNameSnapshot || 'Refeição Livre',
+              energyKcal: e.consumedEnergyKcal || 0,
+            };
+          }
+        });
+    }
+    setOffDietEntries(next);
+  }, [loggedEntries]);
 
   const handleOpenOffDiet = (mealId: string, mealName: string) => {
     setOffDietMealId(mealId);
@@ -408,9 +469,28 @@ export function MealCards({ meals, currentDate }: MealCardsProps) {
         energyKcal: entry.energyKcal,
       },
     }));
+    router.refresh();
   };
 
-  // 3. Modal de Substituição Equivalente
+  // 3. Desfazer Refeição Livre (Remoção da refeição livre com Server Action)
+  const handleRemoveOffDiet = (mealId: string) => {
+    setOffDietEntries((prev) => {
+      const copy = { ...prev };
+      delete copy[mealId];
+      return copy;
+    });
+
+    startCheckTransition(async () => {
+      try {
+        await uncheckMealServerAction(currentDate, mealId);
+        router.refresh();
+      } catch (err) {
+        console.error('Erro ao remover refeição livre:', err);
+      }
+    });
+  };
+
+  // 4. Modal de Substituição Equivalente
   const [subModalData, setSubModalData] = useState<{
     isOpen: boolean;
     mealId: string;
@@ -467,6 +547,7 @@ export function MealCards({ meals, currentDate }: MealCardsProps) {
             isPendingCheck={isPendingCheck}
             onOpenSubstitution={handleOpenSubstitution}
             onOpenOffDiet={handleOpenOffDiet}
+            onRemoveOffDiet={handleRemoveOffDiet}
             offDietEntry={offDietEntries[meal.id]}
           />
         ))}
