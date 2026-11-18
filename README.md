@@ -88,11 +88,13 @@ cd ..
 ---
 
 ### 5. Iniciar o Back-end (Spring Boot 3 / Java 21)
-Abra um terminal e inicie a API REST na porta `8080`:
+Abra um terminal e gere o pacote executável (ou execute diretamente via `java -jar` para máxima compatibilidade em Windows):
 ```bash
 cd backend-spring
-mvn spring-boot:run
+mvn package -DskipTests
+java -jar target/backend-spring-1.0.0-SNAPSHOT.jar
 ```
+> **Dica para Windows:** Executar via `java -jar` é a forma recomendada em ambientes Windows, pois encapsula todas as dependências no Fat JAR e evita limitações de tamanho de linha de comando ou incompatibilidades de codificação (acentos em nomes de usuário como `C:\Users\João`). Alternativamente, também é possível utilizar `mvn spring-boot:run`.
 *(O banco executará as migrações Flyway e populará o protocolo Cutting de 2100 kcal e as 5 refeições padrão).*
 
 ---
