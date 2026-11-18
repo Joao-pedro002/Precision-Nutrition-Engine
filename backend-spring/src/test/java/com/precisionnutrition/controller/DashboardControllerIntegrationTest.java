@@ -142,4 +142,29 @@ class DashboardControllerIntegrationTest {
                 .andExpect(jsonPath("$.isOffDiet", is(true)))
                 .andExpect(jsonPath("$.consumedEnergyKcal", is(320.0)));
     }
+
+    @Test
+    @DisplayName("Integração: Deve desmarcar refeição via endpoint dedicado uncheck-meal")
+    void testUncheckMealOptionEndpoint() throws Exception {
+        LocalDate testDate = LocalDate.now().plusDays(40);
+
+        List<Meal> meals = mealRepository.findByUserIdOrderByOrderIndexAsc(AppConstants.DEFAULT_USER_ID);
+        Meal firstMeal = meals.get(0);
+
+        CheckMealRequest checkRequest = new CheckMealRequest(firstMeal.getId(), 1, AppConstants.DEFAULT_USER_ID);
+
+        // 1. Marcar primeiro
+        mockMvc.perform(post("/api/v1/logs/" + testDate + "/check-meal")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(checkRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entries", not(empty())));
+
+        // 2. Desmarcar via /uncheck-meal
+        mockMvc.perform(post("/api/v1/logs/" + testDate + "/uncheck-meal")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(checkRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entries", empty()));
+    }
 }

@@ -21,6 +21,8 @@ public interface DailyLogService {
 
     DailyLog checkMealOption(LocalDate date, CheckMealRequest request);
 
+    DailyLog uncheckMealOption(LocalDate date, CheckMealRequest request);
+
     DailyLogEntry addOffDietEntry(LocalDate date, OffDietEntryRequest request);
 
     void removeEntry(UUID entryId);

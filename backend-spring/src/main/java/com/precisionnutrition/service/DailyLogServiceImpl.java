@@ -11,6 +11,7 @@ import com.precisionnutrition.repository.MealRepository;
 import com.precisionnutrition.util.AppConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -186,7 +187,56 @@ public class DailyLogServiceImpl implements DailyLogService {
             log.info("Marcada opção {} da refeição {} para data {}", request.optionNumber(), meal.getName(), date);
         }
 
-        return dailyLogRepository.save(dailyLog);
+        DailyLog savedLog = dailyLogRepository.save(dailyLog);
+
+        // Forçar a hidratação dos Proxies JPA para o Jackson não quebrar
+        Hibernate.initialize(savedLog.getEntries());
+        if (savedLog.getEntries() != null) {
+            for (var entry : savedLog.getEntries()) {
+                if (entry.getMeal() != null) {
+                    Hibernate.initialize(entry.getMeal());
+                }
+                if (entry.getFood() != null) {
+                    Hibernate.initialize(entry.getFood());
+                }
+            }
+        }
+
+        return savedLog;
+    }
+
+    @Override
+    @Transactional
+    public DailyLog uncheckMealOption(LocalDate date, CheckMealRequest request) {
+        UUID userId = request.userId() != null ? request.userId() : AppConstants.DEFAULT_USER_ID;
+        DailyLog dailyLog = getOrCreateDailyLog(userId, date);
+
+        List<DailyLogEntry> existingEntries = dailyLog.getEntries().stream()
+                .filter(e -> e.getMeal() != null && e.getMeal().getId().equals(request.mealId()))
+                .toList();
+
+        if (!existingEntries.isEmpty()) {
+            dailyLog.getEntries().removeAll(existingEntries);
+            dailyLogEntryRepository.deleteAll(existingEntries);
+            log.info("Desmarcada refeição {} para data {}", request.mealId(), date);
+        }
+
+        DailyLog savedLog = dailyLogRepository.save(dailyLog);
+
+        // Forçar a hidratação dos Proxies JPA para o Jackson não quebrar
+        Hibernate.initialize(savedLog.getEntries());
+        if (savedLog.getEntries() != null) {
+            for (var entry : savedLog.getEntries()) {
+                if (entry.getMeal() != null) {
+                    Hibernate.initialize(entry.getMeal());
+                }
+                if (entry.getFood() != null) {
+                    Hibernate.initialize(entry.getFood());
+                }
+            }
+        }
+
+        return savedLog;
     }
 
     @Override
@@ -259,6 +309,26 @@ public class DailyLogServiceImpl implements DailyLogService {
         DailyLogEntry savedEntry = dailyLogEntryRepository.save(entry);
         dailyLog.getEntries().add(savedEntry);
         log.info("Lançamento fora da dieta adicionado para data {}: {}", date, food.getName());
+
+        // Forçar a hidratação dos Proxies JPA para o Jackson não quebrar
+        if (savedEntry.getMeal() != null) {
+            Hibernate.initialize(savedEntry.getMeal());
+        }
+        if (savedEntry.getFood() != null) {
+            Hibernate.initialize(savedEntry.getFood());
+        }
+        Hibernate.initialize(dailyLog.getEntries());
+        if (dailyLog.getEntries() != null) {
+            for (var e : dailyLog.getEntries()) {
+                if (e.getMeal() != null) {
+                    Hibernate.initialize(e.getMeal());
+                }
+                if (e.getFood() != null) {
+                    Hibernate.initialize(e.getFood());
+                }
+            }
+        }
+
         return savedEntry;
     }
 

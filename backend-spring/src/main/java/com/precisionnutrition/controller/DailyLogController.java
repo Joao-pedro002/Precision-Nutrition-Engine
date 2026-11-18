@@ -55,6 +55,15 @@ public class DailyLogController {
         return ResponseEntity.ok(updatedLog);
     }
 
+    @PostMapping("/{date}/uncheck-meal")
+    public ResponseEntity<DailyLog> uncheckMeal(
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @Valid @RequestBody CheckMealRequest request
+    ) {
+        DailyLog updatedLog = dailyLogService.uncheckMealOption(date, request);
+        return ResponseEntity.ok(updatedLog);
+    }
+
     @PostMapping("/{date}/off-diet")
     public ResponseEntity<DailyLogEntry> addOffDietEntry(
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
