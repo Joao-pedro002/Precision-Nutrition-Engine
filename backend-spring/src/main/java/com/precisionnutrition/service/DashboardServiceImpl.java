@@ -31,7 +31,7 @@ public class DashboardServiceImpl implements DashboardService {
         LocalDate resolvedDate = date != null ? date : LocalDate.now();
 
         DailyTarget activeTarget = dailyTargetService.getActiveTarget(resolvedUserId);
-        DailyLog dailyLog = dailyLogService.getOrCreateDailyLog(resolvedUserId, resolvedDate);
+        DailyLog dailyLog = dailyLogService.findDailyLog(resolvedUserId, resolvedDate).orElse(null);
 
         // 1. Resumo Diário (Macronutrientes, Zonas Calóricas e Hidratação)
         DailySummaryDto summary = buildDailySummary(dailyLog, activeTarget);
@@ -44,10 +44,12 @@ public class DashboardServiceImpl implements DashboardService {
         List<MealDashboardDto> mealDtos = buildMealDashboardList(meals, dailyLog);
 
         // 4. Entradas Registradas (Logs)
-        List<DailyLogEntryDto> loggedEntries = dailyLog.getEntries().stream()
-                .map(this::mapToEntryDto)
-                .sorted(Comparator.comparing(DailyLogEntryDto::loggedAt, Comparator.nullsLast(Comparator.naturalOrder())))
-                .toList();
+        List<DailyLogEntryDto> loggedEntries = (dailyLog != null && dailyLog.getEntries() != null)
+                ? dailyLog.getEntries().stream()
+                        .map(this::mapToEntryDto)
+                        .sorted(Comparator.comparing(DailyLogEntryDto::loggedAt, Comparator.nullsLast(Comparator.naturalOrder())))
+                        .toList()
+                : Collections.emptyList();
 
         return new DashboardResponse(
                 resolvedDate,
@@ -103,7 +105,7 @@ public class DashboardServiceImpl implements DashboardService {
         BigDecimal cPct = targetC.compareTo(BigDecimal.ZERO) > 0 ? totalC.multiply(BigDecimal.valueOf(100)).divide(targetC, 2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
         BigDecimal gPct = targetG.compareTo(BigDecimal.ZERO) > 0 ? totalG.multiply(BigDecimal.valueOf(100)).divide(targetG, 2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
 
-        BigDecimal waterConsumed = logEntity != null && logEntity.getWaterConsumedMl() != null ? logEntity.getWaterConsumedMl() : BigDecimal.ZERO;
+        BigDecimal waterConsumed = (logEntity != null && logEntity.getWaterConsumedMl() != null ? logEntity.getWaterConsumedMl() : BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
         BigDecimal targetWater = target != null && target.getTargetWaterMl() != null ? target.getTargetWaterMl() : BigDecimal.valueOf(3500);
         BigDecimal waterPct = targetWater.compareTo(BigDecimal.ZERO) > 0 ? waterConsumed.multiply(BigDecimal.valueOf(100)).divide(targetWater, 2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
 

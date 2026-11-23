@@ -9,9 +9,12 @@ import com.precisionnutrition.model.entity.DailyLog;
 import com.precisionnutrition.model.entity.DailyLogEntry;
 
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface DailyLogService {
+
+    Optional<DailyLog> findDailyLog(UUID userId, LocalDate date);
 
     DailyLog getOrCreateDailyLog(UUID userId, LocalDate date);
 

@@ -334,3 +334,54 @@ export async function deactivateActiveTargetApi(userId?: string): Promise<void> 
     throw new Error(`Falha ao desativar meta [HTTP ${response.status}]: ${errorText}`);
   }
 }
+
+/**
+ * Registra ou atualiza o peso corporal de uma data específica (idempotente).
+ */
+export async function recordWeightApi(
+  logDate: string,
+  weightKg: number,
+  userId?: string
+): Promise<import('@/types/nutrition').WeightLogEntry> {
+  const response = await fetch(`${API_BASE_URL}/weight`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({
+      logDate,
+      weightKg,
+      userId,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao registrar peso corporal [HTTP ${response.status}]: ${errorText}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Busca o histórico recente de peso corporal e variação em relação à última pesagem.
+ */
+export async function getWeightHistoryApi(
+  userId?: string
+): Promise<import('@/types/nutrition').WeightHistoryResponse> {
+  const queryParam = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+  const response = await fetch(`${API_BASE_URL}/weight/history${queryParam}`, {
+    cache: 'no-store',
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao buscar histórico de peso [HTTP ${response.status}]: ${errorText}`);
+  }
+
+  return await response.json();
+}

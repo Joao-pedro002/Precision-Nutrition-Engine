@@ -4,6 +4,12 @@ import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 interface MacroDonutChartsProps {
   summary: DailySummaryDto;
+  showFiberBar?: boolean;
+}
+
+interface FiberProgressBarProps {
+  consumedFiberG: number;
+  targetFiberG: number;
 }
 
 interface SingleMacroRingProps {
@@ -45,14 +51,19 @@ function SingleMacroRing({
 
   const clampedPercent = Math.min(100, Math.max(0, computedPercent));
   const delta = safeTarget - safeConsumed;
-  const isExceeded = safeTarget > 0 && delta < -0.05;
+
+  // Margem de tolerância: alerta crítico (rose) apenas acima de 105%
+  const isCriticalExcess = safeTarget > 0 && computedPercent > 105;
+  const isToleranceExcess = safeTarget > 0 && delta < -0.05 && computedPercent <= 105;
   const isGoalMet = safeTarget > 0 && Math.abs(delta) <= 0.05;
   const excessAmount = Math.abs(delta);
   const remainingAmount = Math.max(0, delta);
 
-  const ringColor = isExceeded ? '#f43f5e' : colorHex;
-  const statusAriaText = isExceeded
+  const ringColor = isCriticalExcess ? '#f43f5e' : colorHex;
+  const statusAriaText = isCriticalExcess
     ? `${label}: ${formatGrams(safeConsumed)}g de ${formatGrams(safeTarget)}g (${computedPercent.toFixed(0)}%), +${formatGrams(excessAmount)}g acima da meta`
+    : isToleranceExcess
+    ? `${label}: ${formatGrams(safeConsumed)}g de ${formatGrams(safeTarget)}g (${computedPercent.toFixed(0)}%), +${formatGrams(excessAmount)}g dentro da tolerância`
     : isGoalMet
     ? `${label}: ${formatGrams(safeConsumed)}g de ${formatGrams(safeTarget)}g (100%), meta atingida`
     : `${label}: ${formatGrams(safeConsumed)}g de ${formatGrams(safeTarget)}g (${computedPercent.toFixed(0)}%), faltam ${formatGrams(remainingAmount)}g`;
@@ -64,8 +75,8 @@ function SingleMacroRing({
 
   return (
     <div
-      className={`bg-slate-900/60 border rounded-3xl p-5 flex flex-col items-center shadow-lg transition-all ${
-        isExceeded
+      className={`h-full bg-slate-900/60 border rounded-3xl p-5 flex flex-col items-center justify-between shadow-lg transition-all ${
+        isCriticalExcess
           ? 'border-rose-500/50 shadow-rose-500/10'
           : 'border-slate-800 hover:border-slate-700'
       }`}
@@ -93,7 +104,7 @@ function SingleMacroRing({
           aria-hidden="true"
           className="absolute flex flex-col items-center justify-center text-center pointer-events-none"
         >
-          <span className={`text-xl font-black tabular-nums ${isExceeded ? 'text-rose-400' : textClass}`}>
+          <span className={`text-xl font-black tabular-nums ${isCriticalExcess ? 'text-rose-400' : textClass}`}>
             {computedPercent.toFixed(0)}%
           </span>
           <span className="text-[10px] text-slate-400 font-medium">da meta</span>
@@ -101,7 +112,7 @@ function SingleMacroRing({
       </div>
 
       <div className="mt-4 text-center w-full space-y-2">
-        <div className="flex items-baseline justify-center gap-1.5 tabular-nums">
+        <div className="flex items-baseline justify-center gap-1.5 tabular-nums whitespace-nowrap">
           <span className="text-lg font-black text-slate-100">
             {formatGrams(safeConsumed)}g
           </span>
@@ -110,20 +121,24 @@ function SingleMacroRing({
           </span>
         </div>
 
-        {/* Saldo Restante / Alerta de Excesso */}
+        {/* Saldo Restante / Tolerância (100-105%) / Alerta Crítico (>105%) */}
         <div className="flex justify-center">
-          {isExceeded ? (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
+          {isCriticalExcess ? (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30 whitespace-nowrap">
               <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
               +{formatGrams(excessAmount)}g acima da meta
             </span>
+          ) : isToleranceExcess ? (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-800/80 text-slate-300 border border-slate-700/70 whitespace-nowrap">
+              +{formatGrams(excessAmount)}g (na tolerância)
+            </span>
           ) : isGoalMet ? (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 whitespace-nowrap">
               <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
               Meta atingida!
             </span>
           ) : (
-            <span className="text-[11px] font-medium text-slate-400">
+            <span className="text-[11px] font-medium text-slate-400 whitespace-nowrap">
               Faltam <strong className="text-slate-200">{formatGrams(remainingAmount)}g</strong>
             </span>
           )}
@@ -133,7 +148,39 @@ function SingleMacroRing({
   );
 }
 
-export function MacroDonutCharts({ summary }: MacroDonutChartsProps) {
+export function FiberProgressBar({ consumedFiberG = 0, targetFiberG = 0 }: FiberProgressBarProps) {
+  const fiberPercent = targetFiberG > 0 ? Math.min(100, (consumedFiberG / targetFiberG) * 100) : 0;
+
+  return (
+    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-xs shrink-0">
+          F
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-xs font-semibold text-slate-300">Fibras Alimentares</h2>
+          <p className="text-xs text-slate-400 truncate">
+            Essencial para motilidade intestinal e controle glicêmico
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 w-full sm:w-auto sm:min-w-[220px]">
+        <div className="w-full sm:w-44 h-2 bg-slate-800 rounded-full overflow-hidden">
+          <div
+            style={{ width: `${fiberPercent}%` }}
+            className="h-full bg-emerald-400 rounded-full transition-all duration-500"
+          />
+        </div>
+        <span className="text-xs font-bold text-slate-200 whitespace-nowrap tabular-nums">
+          {formatGrams(consumedFiberG)} / {formatGrams(targetFiberG)}g
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export function MacroDonutCharts({ summary, showFiberBar = false }: MacroDonutChartsProps) {
   const {
     consumedProteinG = 0,
     targetProteinG = 0,
@@ -148,12 +195,10 @@ export function MacroDonutCharts({ summary }: MacroDonutChartsProps) {
     targetFiberG = 0,
   } = summary;
 
-  const fiberPercent = targetFiberG > 0 ? Math.min(100, (consumedFiberG / targetFiberG) * 100) : 0;
-
   return (
-    <section aria-label="Painel Global de Macronutrientes" className="space-y-4">
+    <section aria-label="Painel Global de Macronutrientes" className="h-full space-y-4">
       {/* Grid com os 3 Anéis de Macronutrientes */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="h-full grid grid-cols-1 sm:grid-cols-3 gap-4">
         <SingleMacroRing
           label="Proteínas"
           shortCode="P"
@@ -188,32 +233,9 @@ export function MacroDonutCharts({ summary }: MacroDonutChartsProps) {
         />
       </div>
 
-      {/* Barra de Fibras Complementar */}
-      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-xs">
-            F
-          </div>
-          <div>
-            <h2 className="text-xs font-semibold text-slate-300">Fibras Alimentares</h2>
-            <p className="text-xs text-slate-400">
-              Essencial para motilidade intestinal e controle glicêmico
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="w-full sm:w-36 h-2 bg-slate-800 rounded-full overflow-hidden">
-            <div
-              style={{ width: `${fiberPercent}%` }}
-              className="h-full bg-emerald-400 rounded-full transition-all duration-500"
-            />
-          </div>
-          <span className="text-xs font-bold text-slate-200 whitespace-nowrap tabular-nums">
-            {formatGrams(consumedFiberG)} / {formatGrams(targetFiberG)}g
-          </span>
-        </div>
-      </div>
+      {showFiberBar && (
+        <FiberProgressBar consumedFiberG={consumedFiberG} targetFiberG={targetFiberG} />
+      )}
     </section>
   );
 }

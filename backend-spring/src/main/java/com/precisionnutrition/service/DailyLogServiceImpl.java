@@ -34,6 +34,13 @@ public class DailyLogServiceImpl implements DailyLogService {
     private final NutritionMathService nutritionMathService;
 
     @Override
+    @Transactional(readOnly = true)
+    public Optional<DailyLog> findDailyLog(UUID userId, LocalDate date) {
+        UUID resolvedUserId = userId != null ? userId : AppConstants.DEFAULT_USER_ID;
+        return dailyLogRepository.findByUserIdAndDate(resolvedUserId, date);
+    }
+
+    @Override
     @Transactional
     public DailyLog getOrCreateDailyLog(UUID userId, LocalDate date) {
         UUID resolvedUserId = userId != null ? userId : AppConstants.DEFAULT_USER_ID;

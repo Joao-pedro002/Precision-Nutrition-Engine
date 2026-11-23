@@ -70,7 +70,7 @@ export function CalorieHeader({ summary, activeTarget, currentDate }: CalorieHea
           label: 'Margem de Manutenção',
           icon: <ShieldAlert className="w-4 h-4 text-amber-400" />,
           color: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-          desc: 'Acima do déficit alvo, mas ainda seguro abaixo do gasto basal.',
+          desc: 'Acima do déficit alvo, mas ainda seguro abaixo do gasto de manutenção.',
         };
       case 'SURPLUS':
         return {

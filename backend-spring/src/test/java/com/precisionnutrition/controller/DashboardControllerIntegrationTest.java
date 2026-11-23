@@ -293,4 +293,28 @@ class DashboardControllerIntegrationTest {
                 .andExpect(jsonPath("$.summary.consumedCarbohydrateG", closeTo(carbsBefore, 0.01)))
                 .andExpect(jsonPath("$.summary.consumedLipidG", closeTo(fatBefore, 0.01)));
     }
+
+    @Test
+    @DisplayName("Integração: Data futura inédita ou passada sem registros deve retornar HTTP 200 com resumo zerado e plano ativo")
+    void testUnseenFutureAndPastDateReturnsZeroedDashboard() throws Exception {
+        LocalDate futureDate = LocalDate.now().plusYears(1);
+        LocalDate pastDate = LocalDate.now().minusYears(1);
+
+        for (LocalDate targetDate : List.of(futureDate, pastDate)) {
+            mockMvc.perform(get("/api/v1/dashboard")
+                            .param("date", targetDate.toString())
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.date", is(targetDate.toString())))
+                    .andExpect(jsonPath("$.activeTarget", notNullValue()))
+                    .andExpect(jsonPath("$.summary.consumedEnergyKcal", is(0.0)))
+                    .andExpect(jsonPath("$.summary.consumedProteinG", is(0.0)))
+                    .andExpect(jsonPath("$.summary.consumedCarbohydrateG", is(0.0)))
+                    .andExpect(jsonPath("$.summary.consumedLipidG", is(0.0)))
+                    .andExpect(jsonPath("$.summary.consumedFiberG", is(0.0)))
+                    .andExpect(jsonPath("$.summary.waterConsumedMl", is(0.0)))
+                    .andExpect(jsonPath("$.loggedEntries", empty()))
+                    .andExpect(jsonPath("$.meals", not(empty())));
+        }
+    }
 }

@@ -14,6 +14,7 @@ import {
   applyCustomTargetApi,
   getQuickSubstitutionsApi,
   deactivateActiveTargetApi,
+  recordWeightApi,
 } from '@/lib/api';
 import {
   WaterUpdateResponse,
@@ -164,4 +165,16 @@ export async function getQuickSubstitutionsServerAction(
 export async function deactivateActiveTargetServerAction(userId?: string): Promise<void> {
   await deactivateActiveTargetApi(userId);
   revalidatePath('/');
+}
+
+/**
+ * Server Action: Registra ou atualiza o peso corporal de uma data
+ */
+export async function recordWeightServerAction(
+  logDate: string,
+  weightKg: number
+): Promise<import('@/types/nutrition').WeightLogEntry> {
+  const result = await recordWeightApi(logDate, weightKg);
+  revalidatePath('/');
+  return result;
 }

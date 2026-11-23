@@ -1,12 +1,14 @@
 import React from 'react';
-import { getDashboardData } from '@/lib/api';
+import { getDashboardData, getWeightHistoryApi } from '@/lib/api';
 import { CalorieHeader } from '@/components/CalorieHeader';
-import { MacroDonutCharts } from '@/components/MacroDonutCharts';
+import { MacroDonutCharts, FiberProgressBar } from '@/components/MacroDonutCharts';
 import { WaterTracker } from '@/components/WaterTracker';
+import { WeightTracker } from '@/components/WeightTracker';
 import { MicronutrientMatrix } from '@/components/MicronutrientMatrix';
 import { DateSelector } from '@/components/DateSelector';
 import { MealCards } from '@/components/MealCards';
 import { Sparkles, AlertCircle } from 'lucide-react';
+import { WeightHistoryResponse } from '@/types/nutrition';
 
 interface PageProps {
   searchParams?: {
@@ -16,14 +18,31 @@ interface PageProps {
 
 export const dynamic = 'force-dynamic';
 
+function resolveSafeDate(rawDate?: string): string {
+  if (rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+    return rawDate;
+  }
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default async function DashboardPage({ searchParams }: PageProps) {
-  const currentDate = searchParams?.date || new Date().toISOString().split('T')[0];
+  const currentDate = resolveSafeDate(searchParams?.date);
 
   let dashboardData;
+  let weightHistory: WeightHistoryResponse | null = null;
   let fetchError = null;
 
   try {
-    dashboardData = await getDashboardData(currentDate);
+    const [dashboard, weight] = await Promise.all([
+      getDashboardData(currentDate),
+      getWeightHistoryApi().catch(() => null),
+    ]);
+    dashboardData = dashboard;
+    weightHistory = weight;
   } catch (error: unknown) {
     fetchError = error instanceof Error ? error.message : 'Falha ao conectar com o back-end Spring Boot (Porta 8080).';
   }
@@ -80,20 +99,30 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             currentDate={currentDate}
           />
 
-          {/* 2. Grid Principal: Gráficos de Anel (Donuts) e Rastreador de Hidratação */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
+          {/* 2. Grid Principal Simétrico: Anéis de Macros + Hidratação + Fibras em largura total */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+            <div className="lg:col-span-2">
               <MacroDonutCharts summary={dashboardData.summary} />
             </div>
 
-            <div className="space-y-6">
+            <div>
               <WaterTracker
                 currentDate={currentDate}
                 initialWaterMl={dashboardData.summary.waterConsumedMl}
                 targetWaterMl={dashboardData.summary.targetWaterMl}
               />
             </div>
+
+            <div className="col-span-full">
+              <FiberProgressBar
+                consumedFiberG={dashboardData.summary.consumedFiberG}
+                targetFiberG={dashboardData.summary.targetFiberG}
+              />
+            </div>
           </div>
+
+          {/* 2.5. Tracker de Peso Corporal */}
+          <WeightTracker key={currentDate} currentDate={currentDate} weightHistory={weightHistory} />
 
           {/* 3. Matriz de Micronutrientes & Termômetro da Razão Na : K */}
           <MicronutrientMatrix matrix={dashboardData.micronutrients} />

@@ -283,3 +283,19 @@ export interface QuickSubstitutionDto {
   portions: FoodPortion[];
 }
 
+export interface WeightLogEntry {
+  id: string;
+  logDate: string;
+  weightKg: number;
+  createdAt: string;
+}
+
+export interface WeightHistoryResponse {
+  latestWeightKg: number | null;
+  latestLogDate: string | null;
+  previousWeightKg: number | null;
+  deltaKg: number | null;
+  history: WeightLogEntry[];
+}
+
+
