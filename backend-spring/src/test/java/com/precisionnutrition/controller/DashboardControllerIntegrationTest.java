@@ -220,4 +220,77 @@ class DashboardControllerIntegrationTest {
                 .andExpect(jsonPath("$.summary.consumedEnergyKcal", is(0.0)))
                 .andExpect(jsonPath("$.loggedEntries", empty()));
     }
+
+    @Test
+    @DisplayName("Integração: Deve somar P, C e G no DailySummaryDto ao marcar refeição e blindar macros nulos em refeição livre")
+    void testGlobalMacroAggregationAndNullSafeOffDiet() throws Exception {
+        LocalDate testDate = LocalDate.now().plusDays(60);
+
+        List<Meal> meals = mealRepository.findByUserIdOrderByOrderIndexAsc(AppConstants.DEFAULT_USER_ID);
+        assertFalse(meals.isEmpty(), "Deve haver refeições cadastradas pelo Seeder");
+        Meal firstMeal = meals.get(0);
+
+        // 1. Marcar a primeira refeição prescrita (Opção 1)
+        CheckMealRequest checkRequest = new CheckMealRequest(firstMeal.getId(), 1, AppConstants.DEFAULT_USER_ID);
+        mockMvc.perform(post("/api/v1/logs/" + testDate + "/check-meal")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(checkRequest)))
+                .andExpect(status().isOk());
+
+        // 2. Validar soma de P, C, G e percentuais no Dashboard
+        String dashboardJsonAfterMeal = mockMvc.perform(get("/api/v1/dashboard")
+                        .param("date", testDate.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.summary.consumedProteinG", greaterThan(0.0)))
+                .andExpect(jsonPath("$.summary.consumedCarbohydrateG", greaterThan(0.0)))
+                .andExpect(jsonPath("$.summary.consumedLipidG", greaterThan(0.0)))
+                .andExpect(jsonPath("$.summary.targetProteinG", greaterThan(0.0)))
+                .andExpect(jsonPath("$.summary.targetCarbohydrateG", greaterThan(0.0)))
+                .andExpect(jsonPath("$.summary.targetLipidG", greaterThan(0.0)))
+                .andExpect(jsonPath("$.summary.proteinPercentage", greaterThan(0.0)))
+                .andExpect(jsonPath("$.summary.carbohydratePercentage", greaterThan(0.0)))
+                .andExpect(jsonPath("$.summary.lipidPercentage", greaterThan(0.0)))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        var summaryBeforeOffDiet = objectMapper.readTree(dashboardJsonAfterMeal).get("summary");
+        double kcalBefore = summaryBeforeOffDiet.get("consumedEnergyKcal").asDouble();
+        double proteinBefore = summaryBeforeOffDiet.get("consumedProteinG").asDouble();
+        double carbsBefore = summaryBeforeOffDiet.get("consumedCarbohydrateG").asDouble();
+        double fatBefore = summaryBeforeOffDiet.get("consumedLipidG").asDouble();
+
+        // 3. Lançar refeição livre informando APENAS calorias (macros nulos)
+        OffDietEntryRequest offDietOnlyCalories = new OffDietEntryRequest(
+                null,
+                null,
+                "Sorvete Artesanal (Só Calorias)",
+                new BigDecimal("150.00"),
+                new BigDecimal("450.00"),
+                null,
+                null,
+                null,
+                null,
+                AppConstants.DEFAULT_USER_ID
+        );
+
+        mockMvc.perform(post("/api/v1/logs/" + testDate + "/off-diet")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(offDietOnlyCalories)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.isOffDiet", is(true)))
+                .andExpect(jsonPath("$.consumedEnergyKcal", is(450.0)))
+                .andExpect(jsonPath("$.consumedProteinG", is(0.0)))
+                .andExpect(jsonPath("$.consumedCarbohydrateG", is(0.0)))
+                .andExpect(jsonPath("$.consumedLipidG", is(0.0)));
+
+        // 4. Validar que as calorias somaram +450 e os macros P, C e G permaneceram intactos sem erro
+        mockMvc.perform(get("/api/v1/dashboard")
+                        .param("date", testDate.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.summary.consumedEnergyKcal", closeTo(kcalBefore + 450.0, 0.01)))
+                .andExpect(jsonPath("$.summary.consumedProteinG", closeTo(proteinBefore, 0.01)))
+                .andExpect(jsonPath("$.summary.consumedCarbohydrateG", closeTo(carbsBefore, 0.01)))
+                .andExpect(jsonPath("$.summary.consumedLipidG", closeTo(fatBefore, 0.01)));
+    }
 }

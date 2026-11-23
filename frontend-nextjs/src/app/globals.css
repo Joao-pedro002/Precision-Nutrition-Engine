@@ -35,3 +35,80 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #334155;
 }
+
+/* Semantic <progress> ring for Global Macronutrient Panel */
+@property --value {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+.macro-progress-ring-wrapper {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+progress.macro-progress-ring {
+  --size: 7.75rem;
+  --thickness: 10px;
+  --track-color: #1e293b;
+  --fill-color: #06b6d4;
+  appearance: none;
+  -webkit-appearance: none;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--fill-color) calc(var(--value) * 1%),
+    var(--track-color) 0
+  );
+  background-clip: border-area;
+  border: var(--thickness) solid transparent;
+  background-origin: border-box;
+  transition: --value 0s ease-in-out;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  progress.macro-progress-ring {
+    transition-duration: 0.45s;
+  }
+}
+
+@media (forced-colors: active) {
+  progress.macro-progress-ring {
+    forced-color-adjust: none;
+    --fill-color: CanvasText;
+    --track-color: Canvas;
+  }
+}
+
+@supports not (background-clip: border-area) {
+  progress.macro-progress-ring {
+    mask-image: radial-gradient(
+      transparent calc(50% - var(--thickness)),
+      black calc(50% - var(--thickness) + 0.5px)
+    );
+    border: 0;
+  }
+}
+
+progress.macro-progress-ring::-webkit-progress-bar {
+  display: none;
+  background: none;
+}
+
+progress.macro-progress-ring::-webkit-progress-value {
+  display: none;
+  background: none;
+}
+
+progress.macro-progress-ring::-moz-progress-bar {
+  display: none;
+  background: none;
+}
+
+progress.macro-progress-ring::slider-fill {
+  display: none;
+  background: none;
+}

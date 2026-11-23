@@ -254,11 +254,11 @@ public class DailyLogServiceImpl implements DailyLogService {
             food = foodRepository.findById(request.foodId())
                     .orElseThrow(() -> new FoodNotFoundException("Alimento não encontrado com ID: " + request.foodId()));
             Food prop = nutritionMathService.calculateProportionalNutrition(food, weight);
-            energy = request.energyKcal() != null ? request.energyKcal() : prop.getEnergyKcal();
-            protein = request.proteinG() != null ? request.proteinG() : prop.getProteinG();
-            carb = request.carbohydrateG() != null ? request.carbohydrateG() : prop.getCarbohydrateG();
-            lipid = request.lipidG() != null ? request.lipidG() : prop.getLipidG();
-            fiber = request.fiberG() != null ? request.fiberG() : prop.getFiberG();
+            energy = request.energyKcal() != null ? request.energyKcal() : (prop.getEnergyKcal() != null ? prop.getEnergyKcal() : BigDecimal.ZERO);
+            protein = request.proteinG() != null ? request.proteinG() : (prop.getProteinG() != null ? prop.getProteinG() : BigDecimal.ZERO);
+            carb = request.carbohydrateG() != null ? request.carbohydrateG() : (prop.getCarbohydrateG() != null ? prop.getCarbohydrateG() : BigDecimal.ZERO);
+            lipid = request.lipidG() != null ? request.lipidG() : (prop.getLipidG() != null ? prop.getLipidG() : BigDecimal.ZERO);
+            fiber = request.fiberG() != null ? request.fiberG() : (prop.getFiberG() != null ? prop.getFiberG() : BigDecimal.ZERO);
             micros = prop.getMicronutrients();
         } else {
             String name = request.customName() != null && !request.customName().isBlank()
@@ -365,8 +365,11 @@ public class DailyLogServiceImpl implements DailyLogService {
 
         if (logEntity != null && logEntity.getEntries() != null) {
             for (DailyLogEntry e : logEntity.getEntries()) {
+                if (e == null) {
+                    continue;
+                }
                 BigDecimal kcal = e.isOffDiet()
-                        ? e.getCustomKcal()
+                        ? (e.getCustomKcal() != null ? e.getCustomKcal() : BigDecimal.ZERO)
                         : (e.getConsumedEnergyKcal() != null ? e.getConsumedEnergyKcal() : BigDecimal.ZERO);
                 totalKcal = totalKcal.add(kcal);
                 totalP = totalP.add(e.getConsumedProteinG() != null ? e.getConsumedProteinG() : BigDecimal.ZERO);
