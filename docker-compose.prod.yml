@@ -1,0 +1,113 @@
+# =============================================================================
+# PRECISION NUTRITION ENGINE — PRODUCTION STACK (DOCKER COMPOSE)
+# =============================================================================
+# Preserva o docker-compose.yml simples de desenvolvimento local.
+# Uso: docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+# =============================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: precision-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Configure POSTGRES_DB no arquivo .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Configure POSTGRES_USER no arquivo .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Configure POSTGRES_PASSWORD no arquivo .env}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+      - ./docker/init-db/V1__init_schema.sql:/docker-entrypoint-initdb.d/01_init_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - precision-net
+
+  backend:
+    build:
+      context: ./backend-spring
+      dockerfile: Dockerfile
+    container_name: precision-backend-prod
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?Configure POSTGRES_DB no arquivo .env}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?Configure POSTGRES_USER no arquivo .env}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Configure POSTGRES_PASSWORD no arquivo .env}
+      USDA_API_KEY: ${USDA_API_KEY:-DEMO_KEY}
+      USDA_BASE_URL: ${USDA_BASE_URL:-https://api.nal.usda.gov/fdc/v1}
+      CORS_ALLOWED_ORIGIN: https://${APP_DOMAIN:-localhost}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - precision-net
+
+  frontend:
+    build:
+      context: ./frontend-nextjs
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://localhost}
+    container_name: precision-frontend-prod
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      INTERNAL_API_URL: http://backend:8080
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://localhost}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/manifest.webmanifest || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - precision-net
+
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: precision-caddy-prod
+    restart: unless-stopped
+    depends_on:
+      frontend:
+        condition: service_healthy
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - precision-net
+
+volumes:
+  pgdata_prod:
+    name: precision_nutrition_pgdata_prod
+  caddy_data:
+    name: precision_nutrition_caddy_data
+  caddy_config:
+    name: precision_nutrition_caddy_config
+
+networks:
+  precision-net:
+    name: precision-net
+    driver: bridge

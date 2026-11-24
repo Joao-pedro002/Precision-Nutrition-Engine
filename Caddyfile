@@ -1,0 +1,33 @@
+# =============================================================================
+# PRECISION NUTRITION ENGINE — CADDY REVERSE PROXY (AUTOMATIC HTTPS + PWA)
+# =============================================================================
+# Em desenvolvimento local: APP_DOMAIN=localhost (TLS interno automático)
+# Em produção:              APP_DOMAIN=nutri.seudominio.com (Let's Encrypt automático)
+# =============================================================================
+
+{$APP_DOMAIN:localhost} {
+	encode zstd gzip
+
+	# Cabeçalhos obrigatórios de segurança HTTP (DevSecOps)
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Garante revalidação imediata do Service Worker do PWA
+	@serviceWorker path /sw.js
+	header @serviceWorker Cache-Control "no-cache"
+
+	# Proxy reverso para endpoints diretos da API REST (se consumidos pelo cliente)
+	handle /api/v1/* {
+		reverse_proxy backend:8080
+	}
+
+	# Proxy reverso padrão para o Next.js 14 Standalone (SSR, Server Actions, PWA)
+	handle {
+		reverse_proxy frontend:3000
+	}
+}

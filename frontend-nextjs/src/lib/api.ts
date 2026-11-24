@@ -14,7 +14,19 @@ import {
   DailyTarget,
 } from '@/types/nutrition';
 
-const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api/v1';
+function resolveApiBaseUrl(): string {
+  const isServer = typeof window === 'undefined';
+  const raw =
+    (isServer ? process.env.INTERNAL_API_URL || process.env.API_BASE_URL : undefined) ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    'http://localhost:8080';
+
+  const trimmed = raw.replace(/\/+$/, '');
+  return trimmed.endsWith('/api/v1') ? trimmed : `${trimmed}/api/v1`;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 /**
  * Consulta o agregado do Dashboard diretamente do back-end Spring Boot.
