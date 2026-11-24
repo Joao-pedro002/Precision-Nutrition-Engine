@@ -480,3 +480,44 @@ export async function addMealOptionItemApi(
     throw new Error(`Falha ao adicionar alimento na refeição [HTTP ${response.status}]: ${errorText}`);
   }
 }
+
+/**
+ * Cria uma nova refeição prescrita no plano ativo do usuário.
+ */
+export async function createMealApi(
+  name: string,
+  targetTime?: string | null
+): Promise<void> {
+  const payload: { name: string; targetTime?: string } = { name };
+  if (targetTime && /^\d{2}:\d{2}(:\d{2})?$/.test(targetTime.trim())) {
+    payload.targetTime = targetTime.trim();
+  }
+
+  const response = await fetch(`${API_BASE_URL}/meals`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao criar refeição [HTTP ${response.status}]: ${errorText}`);
+  }
+}
+
+/**
+ * Remove uma refeição do molde do plano ativo (sem alterar snapshots de dias anteriores).
+ */
+export async function deleteMealApi(mealId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/meals/${mealId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao excluir refeição [HTTP ${response.status}]: ${errorText}`);
+  }
+}

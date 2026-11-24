@@ -3,6 +3,7 @@ package com.precisionnutrition.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.precisionnutrition.model.dto.AddMealOptionItemRequest;
 import com.precisionnutrition.model.dto.CheckMealRequest;
+import com.precisionnutrition.model.dto.CreateMealRequest;
 import com.precisionnutrition.model.dto.CustomFoodRequest;
 import com.precisionnutrition.model.dto.UpdateMealItemWeightRequest;
 import com.precisionnutrition.model.entity.Meal;
@@ -21,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -142,5 +144,49 @@ class MealControllerIntegrationTest {
         // Limpeza do alimento custom de teste
         foodRepository.deleteById(customFoodId);
         dailyLogRepository.deleteAll();
+    }
+
+    @Test
+    @DisplayName("Integração: Deve criar refeição com auto-ordem (201), rejeitar nome vazio (400) e remover sem alterar histórico passado (204)")
+    void testCreateValidateAndDeleteMealPreservesPastSnapshots() throws Exception {
+        // 1. Nome vazio deve retornar HTTP 400 Bad Request
+        CreateMealRequest invalidReq = new CreateMealRequest(AppConstants.DEFAULT_USER_ID, "   ", null, null, null);
+        mockMvc.perform(post("/api/v1/meals")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidReq)))
+                .andExpect(status().isBadRequest());
+
+        // 2. Criar nova refeição sem orderIndex -> deve receber próxima ordem disponível e retornar HTTP 201
+        CreateMealRequest validReq = new CreateMealRequest(
+                AppConstants.DEFAULT_USER_ID,
+                "Ceia Proteica Teste",
+                null,
+                LocalTime.of(22, 30),
+                null
+        );
+
+        String createdJson = mockMvc.perform(post("/api/v1/meals")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(validReq)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id", notNullValue()))
+                .andExpect(jsonPath("$.name", is("Ceia Proteica Teste")))
+                .andExpect(jsonPath("$.orderIndex", greaterThan(0)))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        UUID createdMealId = UUID.fromString(objectMapper.readTree(createdJson).get("id").asText());
+
+        // 3. Verificar que no Dashboard a refeição recém-criada já vem com Opção 1 vazia pronta para receber alimentos
+        mockMvc.perform(get("/api/v1/dashboard")
+                        .param("date", LocalDate.now().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meals[?(@.id=='" + createdMealId + "')].options[0].optionNumber", contains(1)));
+
+        // 4. Remover refeição via DELETE /api/v1/meals/{id} -> HTTP 204
+        mockMvc.perform(delete("/api/v1/meals/" + createdMealId))
+                .andExpect(status().isNoContent());
+
+        assertFalse(mealRepository.existsById(createdMealId), "Refeição removida não deve mais existir no plano");
     }
 }

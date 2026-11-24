@@ -1,6 +1,7 @@
 package com.precisionnutrition.controller;
 
 import com.precisionnutrition.model.dto.AddMealOptionItemRequest;
+import com.precisionnutrition.model.dto.CreateMealRequest;
 import com.precisionnutrition.model.dto.MealItemRequest;
 import com.precisionnutrition.model.dto.MealRequest;
 import com.precisionnutrition.model.dto.UpdateMealItemWeightRequest;
@@ -40,7 +41,7 @@ public class MealController {
     }
 
     @PostMapping
-    public ResponseEntity<Meal> createMeal(@Valid @RequestBody MealRequest request) {
+    public ResponseEntity<Meal> createMeal(@Valid @RequestBody CreateMealRequest request) {
         Meal created = mealService.createMeal(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }

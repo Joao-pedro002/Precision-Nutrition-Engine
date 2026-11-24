@@ -1,6 +1,7 @@
 package com.precisionnutrition.service;
 
 import com.precisionnutrition.exception.FoodNotFoundException;
+import com.precisionnutrition.model.dto.CreateMealRequest;
 import com.precisionnutrition.model.dto.MealItemRequest;
 import com.precisionnutrition.model.dto.MealRequest;
 import com.precisionnutrition.model.entity.Food;
@@ -46,12 +47,31 @@ public class MealServiceImpl implements MealService {
     @Override
     @Transactional
     public Meal createMeal(MealRequest request) {
+        return createMeal(new CreateMealRequest(
+                request.userId(),
+                request.name(),
+                request.orderIndex(),
+                request.targetTime(),
+                request.items()
+        ));
+    }
+
+    @Override
+    @Transactional
+    public Meal createMeal(CreateMealRequest request) {
         UUID effectiveUser = (request.userId() != null) ? request.userId() : AppConstants.DEFAULT_USER_ID;
+
+        int resolvedOrderIndex = (request.orderIndex() != null)
+                ? request.orderIndex()
+                : mealRepository.findByUserIdOrderByOrderIndexAsc(effectiveUser).stream()
+                        .mapToInt(m -> m.getOrderIndex() != null ? m.getOrderIndex() : 0)
+                        .max()
+                        .orElse(0) + 1;
 
         Meal meal = Meal.builder()
                 .userId(effectiveUser)
                 .name(request.name().trim())
-                .orderIndex(request.orderIndex() != null ? request.orderIndex() : 0)
+                .orderIndex(resolvedOrderIndex)
                 .targetTime(request.targetTime())
                 .items(new ArrayList<>())
                 .build();

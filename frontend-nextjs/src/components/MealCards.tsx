@@ -8,11 +8,13 @@ import {
   uncheckMealServerAction,
   updateMealItemWeightServerAction,
   removeMealItemServerAction,
+  deleteMealServerAction,
 } from '@/app/actions';
 import { SubstitutionModal } from '@/components/SubstitutionModal';
 import { OffDietModal } from '@/components/OffDietModal';
 import { CustomFoodModal } from '@/components/CustomFoodModal';
 import { AddMealItemModal } from '@/components/AddMealItemModal';
+import { CreateMealModal } from '@/components/CreateMealModal';
 import {
   Utensils,
   Clock,
@@ -48,6 +50,7 @@ interface SingleMealCardProps {
   onUpdateItemWeight: (itemId: string, weightG: number) => Promise<void>;
   onRemoveMealItem: (itemId: string) => Promise<void>;
   onOpenAddItem: (mealId: string, mealName: string, optionNumber: number) => void;
+  onDeleteMeal: (mealId: string) => Promise<void>;
   offDietEntry?: { customName: string; energyKcal: number } | null;
 }
 
@@ -113,6 +116,7 @@ function SingleMealCard({
   onUpdateItemWeight,
   onRemoveMealItem,
   onOpenAddItem,
+  onDeleteMeal,
   offDietEntry,
 }: SingleMealCardProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
@@ -122,6 +126,7 @@ function SingleMealCard({
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingWeight, setEditingWeight] = useState<string>('');
   const [confirmDeleteItemId, setConfirmDeleteItemId] = useState<string | null>(null);
+  const [confirmDeleteMeal, setConfirmDeleteMeal] = useState<boolean>(false);
   const [isMutatingItem, setIsMutatingItem] = useState<boolean>(false);
 
   const handleStartEditWeight = (item: MealItemCalculated) => {
@@ -152,12 +157,30 @@ function SingleMealCard({
     }
   };
 
+  const handleConfirmDeleteMeal = async () => {
+    setIsMutatingItem(true);
+    try {
+      await onDeleteMeal(meal.id);
+      setConfirmDeleteMeal(false);
+    } finally {
+      setIsMutatingItem(false);
+    }
+  };
+
   const handleToggleCheck = () => {
     onToggleCheck(meal.id, activeOptionNumber);
   };
 
-  // Encontra a opção ativa selecionada no card
-  const activeOption = meal.options.find((o) => o.optionNumber === activeOptionNumber) || meal.options[0];
+  // Encontra a opção ativa selecionada no card (fallback para Opção 1 vazia)
+  const activeOption = meal.options.find((o) => o.optionNumber === activeOptionNumber) || meal.options[0] || {
+    optionNumber: 1,
+    totalEnergyKcal: 0,
+    totalProteinG: 0,
+    totalCarbohydrateG: 0,
+    totalLipidG: 0,
+    totalFiberG: 0,
+    items: [],
+  };
 
   return (
     <div
@@ -218,9 +241,45 @@ function SingleMealCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div
+          className="flex items-center gap-2 shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {confirmDeleteMeal ? (
+            <div className="flex items-center gap-1.5 bg-rose-950/50 border border-rose-500/30 rounded-xl px-2.5 py-1 text-[11px]">
+              <span className="text-rose-200 font-semibold">Excluir?</span>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteMeal}
+                disabled={isMutatingItem}
+                className="px-2 py-0.5 rounded-lg bg-rose-500 hover:bg-rose-400 text-slate-950 font-bold transition-colors disabled:opacity-50"
+              >
+                {isMutatingItem ? '...' : 'Sim'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteMeal(false)}
+                disabled={isMutatingItem}
+                className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition-colors"
+              >
+                Não
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmDeleteMeal(true)}
+              className="p-1.5 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+              title="Excluir refeição do plano"
+              aria-label={`Excluir refeição ${meal.name}`}
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+
           <button
             type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
             className="p-1 rounded-xl text-slate-400 hover:text-white"
             aria-label="Expandir ou recolher"
           >
@@ -267,9 +326,9 @@ function SingleMealCard({
               <button
                 type="button"
                 onClick={handleToggleCheck}
-                disabled={isPendingCheck || Boolean(offDietEntry)}
+                disabled={isPendingCheck || Boolean(offDietEntry) || activeOption.items.length === 0}
                 className={`flex items-center gap-1.5 py-2 px-3.5 rounded-2xl text-xs font-bold transition-all shadow-sm border ${
-                  Boolean(offDietEntry)
+                  Boolean(offDietEntry) || activeOption.items.length === 0
                     ? 'opacity-50 cursor-not-allowed bg-slate-800 text-slate-500 border-slate-700'
                     : isCompleted
                     ? 'bg-emerald-500 text-slate-950 border-emerald-400 hover:bg-emerald-400 active:scale-95'
@@ -278,6 +337,8 @@ function SingleMealCard({
                 title={
                   Boolean(offDietEntry)
                     ? 'Desfaça a refeição livre antes de marcar na dieta'
+                    : activeOption.items.length === 0
+                    ? 'Adicione ao menos um alimento antes de marcar como concluída'
                     : 'Marcar como consumida de acordo com o plano'
                 }
               >
@@ -341,6 +402,11 @@ function SingleMealCard({
           ) : (
             <>
               {/* Lista de Alimentos da Opção Selecionada */}
+              {activeOption.items.length === 0 ? (
+                <div className="border border-slate-800/80 rounded-2xl p-4 bg-slate-950/40 text-center text-xs text-slate-400">
+                  Nenhum alimento adicionado na Opção {activeOption.optionNumber} ainda. Clique abaixo para montar esta refeição.
+                </div>
+              ) : (
               <div className="border border-slate-800/80 rounded-2xl overflow-hidden bg-slate-950/40 divide-y divide-slate-800/50">
                 {activeOption.items.map((item) => {
                   const portionLabel = getHouseholdPortionLabel(item.foodName, item.weightG);
@@ -499,6 +565,7 @@ function SingleMealCard({
                   );
                 })}
               </div>
+              )}
 
               {/* Botão Discreto para Adicionar Alimento à Opção Ativa */}
               <button
@@ -667,8 +734,9 @@ export function MealCards({ meals, currentDate, loggedEntries }: MealCardsProps)
     });
   };
 
-  // 5. Edição de Gramagem, Remoção, Adição de Item e Cadastro de Alimento Custom
+  // 5. Edição de Gramagem, Remoção, Adição de Item, Criação/Exclusão de Refeição e Cadastro de Alimento Custom
   const [isCustomFoodModalOpen, setIsCustomFoodModalOpen] = useState<boolean>(false);
+  const [isCreateMealModalOpen, setIsCreateMealModalOpen] = useState<boolean>(false);
   const [addItemModalData, setAddItemModalData] = useState<{
     isOpen: boolean;
     mealId: string;
@@ -688,6 +756,11 @@ export function MealCards({ meals, currentDate, loggedEntries }: MealCardsProps)
 
   const handleRemoveMealItem = async (itemId: string) => {
     await removeMealItemServerAction(itemId);
+    router.refresh();
+  };
+
+  const handleDeleteMeal = async (mealId: string) => {
+    await deleteMealServerAction(mealId);
     router.refresh();
   };
 
@@ -723,35 +796,78 @@ export function MealCards({ meals, currentDate, loggedEntries }: MealCardsProps)
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsCustomFoodModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold self-start sm:self-auto transition-all active:scale-95 whitespace-nowrap"
-        >
-          <PlusCircle className="w-4 h-4 text-emerald-400" />
-          <span>+ Novo Alimento</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsCreateMealModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 border border-emerald-400 text-xs font-black transition-all active:scale-95 whitespace-nowrap shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>+ Nova Refeição</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsCustomFoodModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-all active:scale-95 whitespace-nowrap"
+          >
+            <PlusCircle className="w-4 h-4 text-emerald-400" />
+            <span>+ Novo Alimento</span>
+          </button>
+        </div>
       </div>
 
-      {/* Lista dos Cards de Refeição: key={meal.id} estrita */}
-      <div className="space-y-3.5">
-        {meals.map((meal) => (
-          <SingleMealCard
-            key={meal.id}
-            meal={meal}
-            isCompleted={Boolean(completedMeals[meal.id])}
-            onToggleCheck={handleToggleCheck}
-            isPendingCheck={isPendingCheck}
-            onOpenSubstitution={handleOpenSubstitution}
-            onOpenOffDiet={handleOpenOffDiet}
-            onRemoveOffDiet={handleRemoveOffDiet}
-            onUpdateItemWeight={handleUpdateItemWeight}
-            onRemoveMealItem={handleRemoveMealItem}
-            onOpenAddItem={handleOpenAddItem}
-            offDietEntry={offDietEntries[meal.id]}
-          />
-        ))}
-      </div>
+      {/* Empty State Acionável quando não há refeições no plano (ex: Produção com banco limpo) */}
+      {meals.length === 0 ? (
+        <div className="bg-slate-900/60 border border-dashed border-slate-700/80 rounded-3xl p-8 sm:p-10 text-center space-y-4 shadow-lg">
+          <div className="flex justify-center">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <Utensils className="w-6 h-6" />
+            </div>
+          </div>
+
+          <div className="max-w-md mx-auto space-y-1.5">
+            <h3 className="text-base font-extrabold text-white tracking-tight">
+              Seu plano ainda não possui refeições
+            </h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Crie sua primeira refeição (ex: Café da Manhã, Almoço ou Jantar) para começar a montar o cardápio com alimentos da tabela TACO, USDA ou cadastrados por rótulo.
+            </p>
+          </div>
+
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setIsCreateMealModalOpen(true)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs transition-all shadow-lg shadow-emerald-500/20"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Criar Primeira Refeição</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* Lista dos Cards de Refeição: key={meal.id} estrita */
+        <div className="space-y-3.5">
+          {meals.map((meal) => (
+            <SingleMealCard
+              key={meal.id}
+              meal={meal}
+              isCompleted={Boolean(completedMeals[meal.id])}
+              onToggleCheck={handleToggleCheck}
+              isPendingCheck={isPendingCheck}
+              onOpenSubstitution={handleOpenSubstitution}
+              onOpenOffDiet={handleOpenOffDiet}
+              onRemoveOffDiet={handleRemoveOffDiet}
+              onUpdateItemWeight={handleUpdateItemWeight}
+              onRemoveMealItem={handleRemoveMealItem}
+              onOpenAddItem={handleOpenAddItem}
+              onDeleteMeal={handleDeleteMeal}
+              offDietEntry={offDietEntries[meal.id]}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Modal de Substituição Equivalente */}
       {subModalData.item && (
@@ -772,6 +888,12 @@ export function MealCards({ meals, currentDate, loggedEntries }: MealCardsProps)
         mealId={offDietMealId}
         mealName={offDietMealName}
         onSuccess={handleOffDietSuccess}
+      />
+
+      {/* Modal de Nova Refeição */}
+      <CreateMealModal
+        isOpen={isCreateMealModalOpen}
+        onClose={() => setIsCreateMealModalOpen(false)}
       />
 
       {/* Modal de Cadastro de Alimento Custom */}

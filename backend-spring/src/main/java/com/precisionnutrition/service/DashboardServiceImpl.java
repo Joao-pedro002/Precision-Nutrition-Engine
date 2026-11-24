@@ -258,6 +258,12 @@ public class DashboardServiceImpl implements DashboardService {
                 ));
             }
 
+            // Garante Opção 1 vazia para refeições recém-criadas (prontas para receber alimentos)
+            if (optionDtos.isEmpty()) {
+                BigDecimal zero = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+                optionDtos.add(new MealOptionDto(1, zero, zero, zero, zero, zero, Collections.emptyList()));
+            }
+
             // Determine if completed and which option was completed
             List<DailyLogEntry> mealEntries = (dailyLog != null && dailyLog.getEntries() != null)
                     ? dailyLog.getEntries().stream()

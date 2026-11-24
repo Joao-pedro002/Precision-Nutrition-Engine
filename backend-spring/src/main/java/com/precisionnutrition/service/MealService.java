@@ -1,5 +1,6 @@
 package com.precisionnutrition.service;
 
+import com.precisionnutrition.model.dto.CreateMealRequest;
 import com.precisionnutrition.model.dto.MealItemRequest;
 import com.precisionnutrition.model.dto.MealRequest;
 import com.precisionnutrition.model.entity.Meal;
@@ -16,6 +17,8 @@ public interface MealService {
     Meal getMealById(UUID mealId);
 
     Meal createMeal(MealRequest request);
+
+    Meal createMeal(CreateMealRequest request);
 
     Meal updateMeal(UUID mealId, MealRequest request);
 

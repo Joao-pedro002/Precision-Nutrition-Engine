@@ -19,6 +19,8 @@ import {
   updateMealItemWeightApi,
   removeMealItemApi,
   addMealOptionItemApi,
+  createMealApi,
+  deleteMealApi,
 } from '@/lib/api';
 import {
   WaterUpdateResponse,
@@ -223,5 +225,24 @@ export async function addMealOptionItemServerAction(
   weightG: number
 ): Promise<void> {
   await addMealOptionItemApi(mealId, optionNumber, foodId, weightG);
+  revalidatePath('/');
+}
+
+/**
+ * Server Action: Cria uma nova refeição no plano ativo
+ */
+export async function createMealServerAction(
+  name: string,
+  targetTime?: string | null
+): Promise<void> {
+  await createMealApi(name, targetTime);
+  revalidatePath('/');
+}
+
+/**
+ * Server Action: Remove uma refeição do molde do plano ativo
+ */
+export async function deleteMealServerAction(mealId: string): Promise<void> {
+  await deleteMealApi(mealId);
   revalidatePath('/');
 }
