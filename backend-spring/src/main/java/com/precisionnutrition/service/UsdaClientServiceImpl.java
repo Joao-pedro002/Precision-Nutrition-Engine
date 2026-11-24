@@ -9,6 +9,7 @@ import com.precisionnutrition.model.entity.Food;
 import com.precisionnutrition.model.enums.DominantMacro;
 import com.precisionnutrition.model.enums.FoodSource;
 import com.precisionnutrition.repository.FoodRepository;
+import com.precisionnutrition.util.UsdaNutrientParser;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -126,7 +127,7 @@ public class UsdaClientServiceImpl implements UsdaClientService {
         BigDecimal protein = nutrientMap.getOrDefault("203", BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
         BigDecimal lipid = nutrientMap.getOrDefault("204", BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
         BigDecimal carb = nutrientMap.getOrDefault("205", BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal energy = nutrientMap.getOrDefault("208", BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal energy = UsdaNutrientParser.extractEnergyKcal(item.safeNutrients());
 
         // Se a energia declarada estiver zerada, calcula Atwater
         if (energy.compareTo(BigDecimal.ZERO) <= 0 && (protein.compareTo(BigDecimal.ZERO) > 0 || carb.compareTo(BigDecimal.ZERO) > 0 || lipid.compareTo(BigDecimal.ZERO) > 0)) {

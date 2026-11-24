@@ -240,6 +240,7 @@ export interface TargetCalculationRequest {
   activityLevel: ActivityLevel;
   goal: DietGoal;
   proteinMultiplier?: number;
+  generateBaseMeals?: boolean;
 }
 
 export interface TargetCalculationResponse {

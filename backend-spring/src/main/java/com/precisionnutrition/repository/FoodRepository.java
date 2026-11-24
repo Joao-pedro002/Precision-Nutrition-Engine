@@ -12,12 +12,18 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
 public interface FoodRepository extends JpaRepository<Food, UUID> {
 
     Optional<Food> findBySourceAndExternalId(FoodSource source, String externalId);
+
+    long countBySource(FoodSource source);
+
+    @Query("SELECT f.externalId FROM Food f WHERE f.source = :source AND f.externalId IS NOT NULL")
+    Set<String> findExternalIdsBySource(@Param("source") FoodSource source);
 
     List<Food> findByNameContainingIgnoreCase(String name);
 
@@ -31,6 +37,7 @@ public interface FoodRepository extends JpaRepository<Food, UUID> {
           )
         ORDER BY
           CASE WHEN immutable_unaccent(name) ILIKE CONCAT('%', immutable_unaccent(:query), '%') THEN 0 ELSE 1 END,
+          CASE source WHEN 'CUSTOM' THEN 0 WHEN 'TACO' THEN 1 ELSE 2 END,
           popularity_score DESC,
           similarity(immutable_unaccent(name), immutable_unaccent(:query)) DESC,
           name ASC

@@ -8,8 +8,8 @@ import com.precisionnutrition.model.enums.Gender;
 import com.precisionnutrition.model.enums.TargetSource;
 import com.precisionnutrition.repository.DailyTargetRepository;
 import com.precisionnutrition.util.AppConstants;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,11 +18,21 @@ import java.math.RoundingMode;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class TargetWizardServiceImpl implements TargetWizardService {
 
     private final DailyTargetRepository dailyTargetRepository;
+    private final MealService mealService;
+
+    @Autowired
+    public TargetWizardServiceImpl(DailyTargetRepository dailyTargetRepository, MealService mealService) {
+        this.dailyTargetRepository = dailyTargetRepository;
+        this.mealService = mealService;
+    }
+
+    public TargetWizardServiceImpl(DailyTargetRepository dailyTargetRepository) {
+        this(dailyTargetRepository, null);
+    }
 
     @Override
     public TargetCalculationResponse calculateTargets(TargetCalculationRequest request) {
@@ -184,6 +194,13 @@ public class TargetWizardServiceImpl implements TargetWizardService {
 
         DailyTarget saved = dailyTargetRepository.save(newTarget);
         log.info("Novo protocolo CALCULATED salvo com sucesso: id={}, targetKcalMax={} kcal", saved.getId(), saved.getTargetKcalMax());
+
+        // Gera estrutura base de refeições se o usuário ainda não possuir nenhuma (default = true)
+        boolean shouldGenerateBaseMeals = request.generateBaseMeals() == null || Boolean.TRUE.equals(request.generateBaseMeals());
+        if (shouldGenerateBaseMeals && mealService != null) {
+            mealService.generateBaseMealsIfEmpty(effectiveUser);
+        }
+
         return saved;
     }
 }

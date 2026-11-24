@@ -5,7 +5,7 @@ import com.precisionnutrition.model.dto.MicronutrientsData;
 import com.precisionnutrition.model.entity.DailyTarget;
 import com.precisionnutrition.repository.DailyTargetRepository;
 import com.precisionnutrition.util.AppConstants;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,10 +15,20 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class DailyTargetServiceImpl implements DailyTargetService {
 
     private final DailyTargetRepository dailyTargetRepository;
+    private final MealService mealService;
+
+    @Autowired
+    public DailyTargetServiceImpl(DailyTargetRepository dailyTargetRepository, MealService mealService) {
+        this.dailyTargetRepository = dailyTargetRepository;
+        this.mealService = mealService;
+    }
+
+    public DailyTargetServiceImpl(DailyTargetRepository dailyTargetRepository) {
+        this(dailyTargetRepository, null);
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -64,7 +74,13 @@ public class DailyTargetServiceImpl implements DailyTargetService {
                 .targetMicronutrients(request.targetMicronutrients() != null ? request.targetMicronutrients() : MicronutrientsData.empty())
                 .build();
 
-        return dailyTargetRepository.save(target);
+        DailyTarget saved = dailyTargetRepository.save(target);
+
+        if (Boolean.TRUE.equals(request.generateBaseMeals()) && mealService != null) {
+            mealService.generateBaseMealsIfEmpty(effectiveUser);
+        }
+
+        return saved;
     }
 
     @Override

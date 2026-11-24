@@ -26,7 +26,8 @@ public record TargetCalculationRequest(
         ActivityLevel activityLevel,
         @NotNull(message = "Objetivo da dieta é obrigatório")
         DietGoal goal,
-        BigDecimal proteinMultiplier
+        BigDecimal proteinMultiplier,
+        Boolean generateBaseMeals
 ) {
     public TargetCalculationRequest(
             UUID userId,
@@ -37,6 +38,19 @@ public record TargetCalculationRequest(
             ActivityLevel activityLevel,
             DietGoal goal
     ) {
-        this(userId, gender, ageYears, weightKg, heightCm, activityLevel, goal, null);
+        this(userId, gender, ageYears, weightKg, heightCm, activityLevel, goal, null, null);
+    }
+
+    public TargetCalculationRequest(
+            UUID userId,
+            Gender gender,
+            Integer ageYears,
+            BigDecimal weightKg,
+            BigDecimal heightCm,
+            ActivityLevel activityLevel,
+            DietGoal goal,
+            BigDecimal proteinMultiplier
+    ) {
+        this(userId, gender, ageYears, weightKg, heightCm, activityLevel, goal, proteinMultiplier, null);
     }
 }

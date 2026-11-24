@@ -97,6 +97,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             summary={dashboardData.summary}
             activeTarget={dashboardData.activeTarget}
             currentDate={currentDate}
+            mealsCount={dashboardData.meals.length}
           />
 
           {/* 2. Grid Principal Simétrico: Anéis de Macros + Hidratação + Fibras em largura total */}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Sparkles,
   X,
@@ -28,11 +29,18 @@ interface TargetWizardModalProps {
   isOpen: boolean;
   onClose: () => void;
   canClose?: boolean;
+  mealsCount?: number;
 }
 
-export function TargetWizardModal({ isOpen, onClose, canClose = true }: TargetWizardModalProps) {
+export function TargetWizardModal({ isOpen, onClose, canClose = true, mealsCount = 0 }: TargetWizardModalProps) {
+  const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [isPending, startTransition] = useTransition();
+  const [generateBaseMeals, setGenerateBaseMeals] = useState<boolean>(mealsCount === 0);
+
+  useEffect(() => {
+    setGenerateBaseMeals(mealsCount === 0);
+  }, [mealsCount]);
 
   // Form states com prevenção de leading zeros
   const [gender, setGender] = useState<Gender>('MALE');
@@ -156,6 +164,7 @@ export function TargetWizardModal({ isOpen, onClose, canClose = true }: TargetWi
             activityLevel,
             goal,
             proteinMultiplier,
+            generateBaseMeals: mealsCount === 0 ? generateBaseMeals : false,
           };
           await applyCalculatedTargetServerAction(request);
         } else if (calculatedResult) {
@@ -174,9 +183,11 @@ export function TargetWizardModal({ isOpen, onClose, canClose = true }: TargetWi
             targetFiberG: calculatedResult.targetFiberG,
             targetWaterMl: calculatedResult.targetWaterMl,
             isActive: true,
+            generateBaseMeals: mealsCount === 0 ? generateBaseMeals : false,
           });
         }
 
+        router.refresh();
         setSuccessMessage('Novo protocolo ativo aplicado com sucesso!');
         setTimeout(() => {
           onClose();
@@ -536,6 +547,30 @@ export function TargetWizardModal({ isOpen, onClose, canClose = true }: TargetWi
                 <span className="text-[10px] text-slate-400">{Math.round(adjustedLipid * 9)} kcal</span>
               </div>
             </div>
+
+            {/* Opção de geração de estrutura base de refeições */}
+            {mealsCount === 0 ? (
+              <label className="flex items-start gap-3 p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 cursor-pointer hover:border-emerald-500/40 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={generateBaseMeals}
+                  onChange={(e) => setGenerateBaseMeals(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded accent-emerald-500 shrink-0"
+                />
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold text-slate-200 block">
+                    Criar estrutura base de refeições automaticamente
+                  </span>
+                  <span className="text-[11px] text-slate-400 block">
+                    Gera Café da Manhã (07:00), Almoço (12:30), Lanche da Tarde (16:00) e Jantar (20:00) com alimentos reais da tabela TACO prontos para editar.
+                  </span>
+                </div>
+              </label>
+            ) : (
+              <p className="text-[11px] text-slate-400 bg-slate-900/60 border border-slate-800 rounded-xl px-3.5 py-2.5">
+                Suas <strong className="text-slate-200">{mealsCount} refeições</strong> atuais serão preservadas intactas ao atualizar as metas.
+              </p>
+            )}
 
             {/* Botão de Salvar Protocolo */}
             <div className="pt-2">

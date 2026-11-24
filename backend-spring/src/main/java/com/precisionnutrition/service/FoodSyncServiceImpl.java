@@ -8,6 +8,7 @@ import com.precisionnutrition.model.entity.Food;
 import com.precisionnutrition.model.enums.DominantMacro;
 import com.precisionnutrition.model.enums.FoodSource;
 import com.precisionnutrition.repository.FoodRepository;
+import com.precisionnutrition.util.UsdaNutrientParser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -143,8 +144,8 @@ public class FoodSyncServiceImpl implements FoodSyncService {
         BigDecimal carb = extractNutrientValue(nutrients, 205, "205", 1005, "Carbohydrate");
         // Lipídios: ID 204 (ou 1004 ou número 204)
         BigDecimal lipid = extractNutrientValue(nutrients, 204, "204", 1004, "Total lipid (fat)");
-        // Energia: ID 1008 (ou 208 ou número 208)
-        BigDecimal energy = extractNutrientValue(nutrients, 1008, "208", 208, "Energy");
+        // Energia: estritamente KCAL (ou conversão explícita kJ / 4.184 se ausente)
+        BigDecimal energy = UsdaNutrientParser.extractEnergyKcal(nutrients);
         // Fibras: ID 291 (ou 1079 ou número 291)
         BigDecimal fiber = extractNutrientValue(nutrients, 291, "291", 1079, "Fiber");
 

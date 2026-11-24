@@ -7,6 +7,7 @@ import com.precisionnutrition.model.entity.Food;
 import com.precisionnutrition.model.enums.DominantMacro;
 import com.precisionnutrition.model.enums.FoodSource;
 import com.precisionnutrition.repository.FoodRepository;
+import com.precisionnutrition.util.UsdaNutrientParser;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -208,5 +209,61 @@ class FoodSyncServiceTest {
         assertEquals(2, results.size());
         assertEquals("Ovo Cozido", results.get(0).getName());
         assertEquals("Batata Doce", results.get(1).getName());
+    }
+
+    @Test
+    @DisplayName("USDA Energy Bug: Quando JSON contém Energy em kJ (1500) e KCAL (358), deve salvar estritamente 358 kcal")
+    void testUsdaEnergyPrefersKcalOverKjWhenBothPresent() {
+        when(foodRepository.findByNameContainingIgnoreCase("tapioca")).thenReturn(new ArrayList<>());
+
+        // Simula JSON real da USDA onde kJ (1500) aparece ANTES de KCAL (358)
+        List<UsdaNutrient> nutrients = List.of(
+                new UsdaNutrient(1062, "268", "Energy", new BigDecimal("1500.00"), "kJ", null),
+                new UsdaNutrient(1008, "208", "Energy", new BigDecimal("358.00"), "KCAL", null),
+                new UsdaNutrient(203, "203", "Protein", new BigDecimal("0.19"), "G", null),
+                new UsdaNutrient(205, "205", "Carbohydrate, by difference", new BigDecimal("88.69"), "G", null),
+                new UsdaNutrient(204, "204", "Total lipid (fat)", new BigDecimal("0.02"), "G", null)
+        );
+
+        UsdaFoodItem tapiocaUsda = new UsdaFoodItem(
+                169717L,
+                "Tapioca, pearl, dry",
+                null,
+                null,
+                "Cereal Grains and Pasta",
+                "SR Legacy",
+                nutrients
+        );
+
+        when(usdaApiClient.searchFoods("tapioca")).thenReturn(new UsdaSearchResponse(1, 1, 1, List.of(tapiocaUsda)));
+        when(foodRepository.findBySourceAndExternalId(FoodSource.USDA, "USDA-169717")).thenReturn(Optional.empty());
+        when(nutritionMathService.calculateDominantMacro(any(), any(), any())).thenReturn(DominantMacro.CARB);
+        when(foodRepository.saveAll(anyList())).thenAnswer(inv -> {
+            List<Food> saved = inv.getArgument(0);
+            saved.forEach(f -> f.setId(UUID.randomUUID()));
+            return saved;
+        });
+
+        List<Food> results = foodSyncService.searchFoods("tapioca");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<Food>> captor = ArgumentCaptor.forClass(List.class);
+        verify(foodRepository).saveAll(captor.capture());
+
+        Food savedFood = captor.getValue().get(0);
+        assertEquals(new BigDecimal("358.00"), savedFood.getEnergyKcal());
+        assertEquals(1, results.size());
+        assertEquals(new BigDecimal("358.00"), results.get(0).getEnergyKcal());
+    }
+
+    @Test
+    @DisplayName("USDA Energy Fallback: Quando alimento vier apenas com kJ (1500) sem KCAL, deve converter dividindo por 4.184")
+    void testUsdaEnergyConvertsKjToKcalWhenOnlyKjPresent() {
+        List<UsdaNutrient> onlyKj = List.of(
+                new UsdaNutrient(1062, "268", "Energy", new BigDecimal("1500.00"), "kJ", null)
+        );
+
+        BigDecimal converted = UsdaNutrientParser.extractEnergyKcal(onlyKj);
+        assertEquals(new BigDecimal("358.51"), converted);
     }
 }

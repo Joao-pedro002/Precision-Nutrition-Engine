@@ -12,18 +12,24 @@ import com.precisionnutrition.repository.MealItemRepository;
 import com.precisionnutrition.repository.MealRepository;
 import com.precisionnutrition.util.AppConstants;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.hibernate.Hibernate;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MealServiceImpl implements MealService {
 
     private final MealRepository mealRepository;
@@ -158,5 +164,78 @@ public class MealServiceImpl implements MealService {
         MealItem item = mealItemRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Item de refeição não encontrado para ID: " + itemId));
         mealItemRepository.delete(item);
+    }
+
+    @Override
+    @Transactional
+    public List<Meal> generateBaseMealsIfEmpty(UUID userId) {
+        UUID effectiveUser = (userId != null) ? userId : AppConstants.DEFAULT_USER_ID;
+
+        List<Meal> existing = mealRepository.findByUserIdOrderByOrderIndexAsc(effectiveUser);
+        if (!existing.isEmpty()) {
+            log.info("Usuário {} já possui {} refeição(ões). Geração de estrutura base ignorada.", effectiveUser, existing.size());
+            return Collections.emptyList();
+        }
+
+        List<Meal> createdMeals = new ArrayList<>();
+
+        // 1. Café da Manhã (07:00)
+        Meal cafe = saveBaseMeal(effectiveUser, "Café da Manhã", 1, LocalTime.of(7, 0));
+        addBaseItemIfFound(cafe, "Ovo, de galinha, inteiro, cozido", new BigDecimal("100.00"));
+        addBaseItemIfFound(cafe, "Aveia, flocos, crua", new BigDecimal("40.00"));
+        addBaseItemIfFound(cafe, "Banana, prata, crua", new BigDecimal("100.00"));
+        createdMeals.add(cafe);
+
+        // 2. Almoço (12:30)
+        Meal almoco = saveBaseMeal(effectiveUser, "Almoço", 2, LocalTime.of(12, 30));
+        addBaseItemIfFound(almoco, "Frango, peito, sem pele, grelhado", new BigDecimal("150.00"));
+        addBaseItemIfFound(almoco, "Arroz, tipo 1, cozido", new BigDecimal("150.00"));
+        addBaseItemIfFound(almoco, "Feijão, carioca, cozido", new BigDecimal("100.00"));
+        addBaseItemIfFound(almoco, "Azeite, de oliva, extravirgem", new BigDecimal("8.00"));
+        createdMeals.add(almoco);
+
+        // 3. Lanche da Tarde (16:00)
+        Meal lanche = saveBaseMeal(effectiveUser, "Lanche da Tarde", 3, LocalTime.of(16, 0));
+        addBaseItemIfFound(lanche, "Tapioca, goma / massa fresca", new BigDecimal("60.00"));
+        addBaseItemIfFound(lanche, "Ovo, de galinha, inteiro, cozido", new BigDecimal("100.00"));
+        createdMeals.add(lanche);
+
+        // 4. Jantar (20:00)
+        Meal jantar = saveBaseMeal(effectiveUser, "Jantar", 4, LocalTime.of(20, 0));
+        addBaseItemIfFound(jantar, "Frango, peito, sem pele, grelhado", new BigDecimal("150.00"));
+        addBaseItemIfFound(jantar, "Batata, doce, cozida", new BigDecimal("150.00"));
+        addBaseItemIfFound(jantar, "Azeite, de oliva, extravirgem", new BigDecimal("8.00"));
+        createdMeals.add(jantar);
+
+        log.info("Estrutura base de {} refeições gerada automaticamente para usuário {}.", createdMeals.size(), effectiveUser);
+        return createdMeals;
+    }
+
+    private Meal saveBaseMeal(UUID userId, String name, int orderIndex, LocalTime targetTime) {
+        Meal meal = Meal.builder()
+                .userId(userId)
+                .name(name)
+                .orderIndex(orderIndex)
+                .targetTime(targetTime)
+                .items(new ArrayList<>())
+                .build();
+        return mealRepository.save(meal);
+    }
+
+    private void addBaseItemIfFound(Meal meal, String foodNameQuery, BigDecimal weightG) {
+        Optional<Food> foodOpt = foodRepository.searchByName(foodNameQuery, PageRequest.of(0, 1))
+                .getContent()
+                .stream()
+                .findFirst();
+
+        foodOpt.ifPresent(food -> {
+            MealItem item = MealItem.builder()
+                    .meal(meal)
+                    .food(food)
+                    .optionNumber(1)
+                    .weightG(weightG.setScale(2, RoundingMode.HALF_UP))
+                    .build();
+            mealItemRepository.save(item);
+        });
     }
 }

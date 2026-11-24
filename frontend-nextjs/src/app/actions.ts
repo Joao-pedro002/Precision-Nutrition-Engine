@@ -148,6 +148,7 @@ export async function applyCustomTargetServerAction(targetData: {
   targetFiberG: number;
   targetWaterMl: number;
   isActive: boolean;
+  generateBaseMeals?: boolean;
 }): Promise<DailyTarget> {
   const result = await applyCustomTargetApi(targetData);
   revalidatePath('/');

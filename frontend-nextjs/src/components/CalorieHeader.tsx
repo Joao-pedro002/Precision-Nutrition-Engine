@@ -10,9 +10,10 @@ interface CalorieHeaderProps {
   summary: DailySummaryDto;
   activeTarget: DailyTarget | null;
   currentDate: string;
+  mealsCount?: number;
 }
 
-export function CalorieHeader({ summary, activeTarget, currentDate }: CalorieHeaderProps) {
+export function CalorieHeader({ summary, activeTarget, currentDate, mealsCount = 0 }: CalorieHeaderProps) {
   const hasActiveTarget = Boolean(activeTarget && activeTarget.id);
   const [isWizardOpen, setIsWizardOpen] = useState(!hasActiveTarget);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -235,6 +236,7 @@ export function CalorieHeader({ summary, activeTarget, currentDate }: CalorieHea
         isOpen={isWizardOpen}
         onClose={() => setIsWizardOpen(false)}
         canClose={hasActiveTarget}
+        mealsCount={mealsCount}
       />
     </div>
   );

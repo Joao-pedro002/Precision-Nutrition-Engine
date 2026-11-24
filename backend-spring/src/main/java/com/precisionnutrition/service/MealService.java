@@ -29,4 +29,6 @@ public interface MealService {
     MealItem updateMealItemWeight(UUID itemId, BigDecimal weightG);
 
     void removeItemFromMeal(UUID itemId);
+
+    List<Meal> generateBaseMealsIfEmpty(UUID userId);
 }

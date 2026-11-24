@@ -39,5 +39,35 @@ public record DailyTargetRequest(
         BigDecimal targetWaterMl,
 
         MicronutrientsData targetMicronutrients,
-        Boolean isActive
-) {}
+        Boolean isActive,
+        Boolean generateBaseMeals
+) {
+    public DailyTargetRequest(
+            UUID userId,
+            BigDecimal targetKcalMin,
+            BigDecimal targetKcalMax,
+            BigDecimal maintenanceKcalCeiling,
+            BigDecimal targetProteinG,
+            BigDecimal targetCarbohydrateG,
+            BigDecimal targetLipidG,
+            BigDecimal targetFiberG,
+            BigDecimal targetWaterMl,
+            MicronutrientsData targetMicronutrients,
+            Boolean isActive
+    ) {
+        this(
+                userId,
+                targetKcalMin,
+                targetKcalMax,
+                maintenanceKcalCeiling,
+                targetProteinG,
+                targetCarbohydrateG,
+                targetLipidG,
+                targetFiberG,
+                targetWaterMl,
+                targetMicronutrients,
+                isActive,
+                null
+        );
+    }
+}

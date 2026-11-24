@@ -280,6 +280,7 @@ export async function applyCustomTargetApi(targetData: {
   targetFiberG: number;
   targetWaterMl: number;
   isActive: boolean;
+  generateBaseMeals?: boolean;
 }): Promise<DailyTarget> {
   const response = await fetch(`${API_BASE_URL}/targets`, {
     method: 'POST',
