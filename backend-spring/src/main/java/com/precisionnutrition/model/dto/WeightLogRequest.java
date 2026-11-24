@@ -3,12 +3,14 @@ package com.precisionnutrition.model.dto;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PastOrPresent;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
 public record WeightLogRequest(
+        @PastOrPresent(message = "Não é possível registrar peso em uma data futura")
         LocalDate logDate,
 
         @NotNull(message = "O peso em kg é obrigatório")

@@ -52,7 +52,12 @@ public class WeightLogServiceImpl implements WeightLogService {
     @Transactional(readOnly = true)
     public WeightHistoryResponse getWeightHistory(UUID userId) {
         UUID resolvedUserId = userId != null ? userId : AppConstants.DEFAULT_USER_ID;
-        List<WeightLog> logs = weightLogRepository.findTop30ByUserIdOrderByLogDateDesc(resolvedUserId);
+        LocalDate today = LocalDate.now();
+        List<WeightLog> logs = weightLogRepository
+                .findTop30ByUserIdAndLogDateLessThanEqualOrderByLogDateDesc(resolvedUserId, today)
+                .stream()
+                .filter(w -> w.getLogDate() != null && !w.getLogDate().isAfter(today))
+                .toList();
 
         List<WeightLogEntryDto> history = logs.stream()
                 .map(this::toDto)

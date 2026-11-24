@@ -15,4 +15,6 @@ public interface WeightLogRepository extends JpaRepository<WeightLog, UUID> {
     Optional<WeightLog> findByUserIdAndLogDate(UUID userId, LocalDate logDate);
 
     List<WeightLog> findTop30ByUserIdOrderByLogDateDesc(UUID userId);
+
+    List<WeightLog> findTop30ByUserIdAndLogDateLessThanEqualOrderByLogDateDesc(UUID userId, LocalDate maxDate);
 }
