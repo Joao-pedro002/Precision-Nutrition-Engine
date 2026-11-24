@@ -385,3 +385,86 @@ export async function getWeightHistoryApi(
 
   return await response.json();
 }
+
+/**
+ * Cadastra um alimento personalizado (source = CUSTOM) com valores nutricionais por 100g.
+ */
+export async function createCustomFoodApi(
+  request: import('@/types/nutrition').CustomFoodRequest
+): Promise<Food> {
+  const response = await fetch(`${API_BASE_URL}/foods/custom`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao cadastrar alimento customizado [HTTP ${response.status}]: ${errorText}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Atualiza a gramagem (g) de um item prescrito em uma refeição.
+ */
+export async function updateMealItemWeightApi(
+  itemId: string,
+  weightG: number
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/meals/items/${itemId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({ weightG }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao atualizar gramagem do item [HTTP ${response.status}]: ${errorText}`);
+  }
+}
+
+/**
+ * Remove um item prescrito de uma opção de refeição.
+ */
+export async function removeMealItemApi(itemId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/meals/items/${itemId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao remover item da refeição [HTTP ${response.status}]: ${errorText}`);
+  }
+}
+
+/**
+ * Adiciona um alimento existente (TACO, USDA ou CUSTOM) a uma opção específica da refeição.
+ */
+export async function addMealOptionItemApi(
+  mealId: string,
+  optionNumber: number,
+  foodId: string,
+  weightG: number
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/meals/${mealId}/options/${optionNumber}/items`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({ foodId, weightG }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao adicionar alimento na refeição [HTTP ${response.status}]: ${errorText}`);
+  }
+}

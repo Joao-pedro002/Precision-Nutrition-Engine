@@ -1,5 +1,6 @@
 package com.precisionnutrition.service;
 
+import com.precisionnutrition.model.dto.CustomFoodRequest;
 import com.precisionnutrition.model.dto.FoodCreateRequest;
 import com.precisionnutrition.model.entity.Food;
 import org.springframework.data.domain.Page;
@@ -14,6 +15,8 @@ public interface FoodService {
     Food getFoodById(UUID id);
 
     Food createCustomFood(FoodCreateRequest request);
+
+    Food createCustomFood(CustomFoodRequest request);
 
     Food syncUsdaFood(Long fdcId);
 }

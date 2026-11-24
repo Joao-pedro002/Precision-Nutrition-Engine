@@ -1,6 +1,7 @@
 package com.precisionnutrition.service;
 
 import com.precisionnutrition.exception.FoodNotFoundException;
+import com.precisionnutrition.model.dto.CustomFoodRequest;
 import com.precisionnutrition.model.dto.FoodCreateRequest;
 import com.precisionnutrition.model.dto.MicronutrientsData;
 import com.precisionnutrition.model.entity.Food;
@@ -55,6 +56,22 @@ public class FoodServiceImpl implements FoodService {
     @Override
     @Transactional
     public Food createCustomFood(FoodCreateRequest request) {
+        return createCustomFood(new CustomFoodRequest(
+                request.name(),
+                request.category(),
+                request.dominantMacro(),
+                request.energyKcal(),
+                request.proteinG(),
+                request.carbohydrateG(),
+                request.lipidG(),
+                request.fiberG(),
+                request.micronutrients()
+        ));
+    }
+
+    @Override
+    @Transactional
+    public Food createCustomFood(CustomFoodRequest request) {
         DominantMacro dominantMacro = request.dominantMacro();
         if (dominantMacro == null) {
             dominantMacro = autoClassify(request.proteinG(), request.carbohydrateG(), request.lipidG());
@@ -63,9 +80,10 @@ public class FoodServiceImpl implements FoodService {
         Food food = Food.builder()
                 .name(request.name().trim())
                 .source(FoodSource.CUSTOM)
-                .category(request.category() != null ? request.category().trim() : "Personalizados")
+                .category(request.category() != null && !request.category().isBlank() ? request.category().trim() : "Personalizados")
                 .dominantMacro(dominantMacro)
                 .servingSizeG(new BigDecimal("100.00"))
+                .popularityScore(100)
                 .energyKcal(request.energyKcal().setScale(2, RoundingMode.HALF_UP))
                 .proteinG(request.proteinG().setScale(2, RoundingMode.HALF_UP))
                 .carbohydrateG(request.carbohydrateG().setScale(2, RoundingMode.HALF_UP))

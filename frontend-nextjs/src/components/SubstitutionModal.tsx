@@ -25,7 +25,9 @@ import {
   Sparkles,
   Loader2,
   Zap,
+  PlusCircle,
 } from 'lucide-react';
+import { CustomFoodModal } from '@/components/CustomFoodModal';
 
 interface SubstitutionModalProps {
   isOpen: boolean;
@@ -59,6 +61,7 @@ export function SubstitutionModal({
 
   const [quickSuggestions, setQuickSuggestions] = useState<QuickSubstitutionDto[]>([]);
   const [isLoadingQuick, setIsLoadingQuick] = useState<boolean>(false);
+  const [isCustomFoodOpen, setIsCustomFoodOpen] = useState<boolean>(false);
 
   // Sincroniza o peso quando o item ou modal muda
   useEffect(() => {
@@ -194,6 +197,7 @@ export function SubstitutionModal({
   };
 
   return (
+    <>
     <dialog
       ref={dialogRef}
       onClose={onClose}
@@ -379,9 +383,19 @@ export function SubstitutionModal({
 
         {/* Barra de Busca de Alimentos */}
         <div className="space-y-3">
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
-            Buscar Alimento Substituto (TACO ou USDA)
-          </label>
+          <div className="flex items-center justify-between gap-2">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
+              Buscar Alimento Substituto (TACO, USDA ou Custom)
+            </label>
+            <button
+              type="button"
+              onClick={() => setIsCustomFoodOpen(true)}
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1 rounded-lg border border-emerald-500/25 transition-colors whitespace-nowrap"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>+ Novo Alimento</span>
+            </button>
+          </div>
 
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -596,5 +610,15 @@ export function SubstitutionModal({
         )}
       </div>
     </dialog>
+
+    <CustomFoodModal
+      isOpen={isCustomFoodOpen}
+      onClose={() => setIsCustomFoodOpen(false)}
+      onCreated={(createdFood) => {
+        setSelectedFood(createdFood);
+        setSearchQuery(createdFood.name);
+      }}
+    />
+    </>
   );
 }

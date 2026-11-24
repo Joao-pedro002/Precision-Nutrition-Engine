@@ -11,9 +11,11 @@ import com.precisionnutrition.repository.MealItemRepository;
 import com.precisionnutrition.repository.MealRepository;
 import com.precisionnutrition.util.AppConstants;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
@@ -113,12 +115,28 @@ public class MealServiceImpl implements MealService {
                 .weightG(request.weightG().setScale(2, RoundingMode.HALF_UP))
                 .build();
 
-        return mealItemRepository.save(item);
+        MealItem saved = mealItemRepository.save(item);
+        Hibernate.initialize(saved.getFood());
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    public MealItem updateMealItemWeight(UUID itemId, BigDecimal weightG) {
+        MealItem item = mealItemRepository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("Item de refeição não encontrado para ID: " + itemId));
+
+        item.setWeightG(weightG.setScale(2, RoundingMode.HALF_UP));
+        MealItem saved = mealItemRepository.save(item);
+        Hibernate.initialize(saved.getFood());
+        return saved;
     }
 
     @Override
     @Transactional
     public void removeItemFromMeal(UUID itemId) {
-        mealItemRepository.deleteById(itemId);
+        MealItem item = mealItemRepository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("Item de refeição não encontrado para ID: " + itemId));
+        mealItemRepository.delete(item);
     }
 }

@@ -3,9 +3,16 @@
 import React, { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { MealDashboard, MealItemCalculated, DailyLogEntry } from '@/types/nutrition';
-import { checkMealServerAction, uncheckMealServerAction } from '@/app/actions';
+import {
+  checkMealServerAction,
+  uncheckMealServerAction,
+  updateMealItemWeightServerAction,
+  removeMealItemServerAction,
+} from '@/app/actions';
 import { SubstitutionModal } from '@/components/SubstitutionModal';
 import { OffDietModal } from '@/components/OffDietModal';
+import { CustomFoodModal } from '@/components/CustomFoodModal';
+import { AddMealItemModal } from '@/components/AddMealItemModal';
 import {
   Utensils,
   Clock,
@@ -17,6 +24,11 @@ import {
   Sparkles,
   Loader2,
   Trash2,
+  Pencil,
+  Check,
+  X,
+  Plus,
+  PlusCircle,
 } from 'lucide-react';
 
 interface MealCardsProps {
@@ -33,6 +45,9 @@ interface SingleMealCardProps {
   onOpenSubstitution: (mealId: string, item: MealItemCalculated, optionNumber: number) => void;
   onOpenOffDiet: (mealId: string, mealName: string) => void;
   onRemoveOffDiet: (mealId: string) => void;
+  onUpdateItemWeight: (itemId: string, weightG: number) => Promise<void>;
+  onRemoveMealItem: (itemId: string) => Promise<void>;
+  onOpenAddItem: (mealId: string, mealName: string, optionNumber: number) => void;
   offDietEntry?: { customName: string; energyKcal: number } | null;
 }
 
@@ -95,12 +110,47 @@ function SingleMealCard({
   onOpenSubstitution,
   onOpenOffDiet,
   onRemoveOffDiet,
+  onUpdateItemWeight,
+  onRemoveMealItem,
+  onOpenAddItem,
   offDietEntry,
 }: SingleMealCardProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const [activeOptionNumber, setActiveOptionNumber] = useState<number>(
     meal.completedOptionNumber || 1
   );
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingWeight, setEditingWeight] = useState<string>('');
+  const [confirmDeleteItemId, setConfirmDeleteItemId] = useState<string | null>(null);
+  const [isMutatingItem, setIsMutatingItem] = useState<boolean>(false);
+
+  const handleStartEditWeight = (item: MealItemCalculated) => {
+    setConfirmDeleteItemId(null);
+    setEditingItemId(item.id);
+    setEditingWeight(String(Math.round(item.weightG * 10) / 10));
+  };
+
+  const handleConfirmEditWeight = async (itemId: string) => {
+    const parsed = parseFloat(editingWeight.replace(',', '.'));
+    if (!Number.isFinite(parsed) || parsed <= 0) return;
+    setIsMutatingItem(true);
+    try {
+      await onUpdateItemWeight(itemId, parsed);
+      setEditingItemId(null);
+    } finally {
+      setIsMutatingItem(false);
+    }
+  };
+
+  const handleConfirmRemoveItem = async (itemId: string) => {
+    setIsMutatingItem(true);
+    try {
+      await onRemoveMealItem(itemId);
+      setConfirmDeleteItemId(null);
+    } finally {
+      setIsMutatingItem(false);
+    }
+  };
 
   const handleToggleCheck = () => {
     onToggleCheck(meal.id, activeOptionNumber);
@@ -340,20 +390,125 @@ function SingleMealCard({
                         </div>
                       </div>
 
-                      {/* Botão para abrir o Modal de Substituição Equivalente */}
-                      <button
-                        type="button"
-                        onClick={() => onOpenSubstitution(meal.id, item, activeOption.optionNumber)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/70 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-semibold self-start sm:self-auto transition-all active:scale-95"
-                        title="Substituir este alimento mantendo o macro dominante"
-                      >
-                        <ArrowRightLeft className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Substituir</span>
-                      </button>
+                      {/* Ações do Item: Editar Gramagem, Substituir e Remover */}
+                      <div className="flex items-center gap-1.5 self-start sm:self-auto shrink-0 flex-wrap">
+                        {editingItemId === item.id ? (
+                          <div className="flex items-center gap-1 bg-slate-900 border border-emerald-500/40 rounded-xl p-1">
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              step="1"
+                              min="1"
+                              aria-label={`Nova gramagem de ${item.foodName}`}
+                              value={editingWeight}
+                              onChange={(e) => setEditingWeight(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleConfirmEditWeight(item.id);
+                                } else if (e.key === 'Escape') {
+                                  setEditingItemId(null);
+                                }
+                              }}
+                              disabled={isMutatingItem}
+                              className="w-16 px-2 py-1 bg-slate-950 border border-slate-700 rounded-lg text-xs font-bold text-white text-center tabular-nums focus:border-emerald-400 focus:outline-none"
+                              autoFocus
+                            />
+                            <span className="text-[10px] text-slate-400 font-semibold pr-0.5">g</span>
+                            <button
+                              type="button"
+                              onClick={() => handleConfirmEditWeight(item.id)}
+                              disabled={isMutatingItem}
+                              aria-label="Confirmar nova gramagem"
+                              className="p-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-colors disabled:opacity-50"
+                            >
+                              {isMutatingItem ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Check className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingItemId(null)}
+                              disabled={isMutatingItem}
+                              aria-label="Cancelar edição de gramagem"
+                              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : confirmDeleteItemId === item.id ? (
+                          <div className="flex items-center gap-1.5 bg-rose-950/40 border border-rose-500/30 rounded-xl px-2 py-1 text-[11px]">
+                            <span className="text-rose-200 font-semibold">Remover?</span>
+                            <button
+                              type="button"
+                              onClick={() => handleConfirmRemoveItem(item.id)}
+                              disabled={isMutatingItem}
+                              className="px-2 py-0.5 rounded-lg bg-rose-500 hover:bg-rose-400 text-slate-950 font-bold transition-colors disabled:opacity-50"
+                            >
+                              {isMutatingItem ? '...' : 'Sim'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteItemId(null)}
+                              disabled={isMutatingItem}
+                              className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition-colors"
+                            >
+                              Não
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditWeight(item)}
+                              className="p-1.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-400 hover:text-emerald-300 border border-slate-700/50 transition-all active:scale-95"
+                              title="Editar gramagem (g)"
+                              aria-label={`Editar gramagem de ${item.foodName}`}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => onOpenSubstitution(meal.id, item, activeOption.optionNumber)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/70 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-semibold transition-all active:scale-95"
+                              title="Substituir este alimento mantendo o macro dominante"
+                            >
+                              <ArrowRightLeft className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Substituir</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingItemId(null);
+                                setConfirmDeleteItemId(item.id);
+                              }}
+                              className="p-1.5 rounded-xl bg-slate-800/60 hover:bg-rose-500/15 text-slate-400 hover:text-rose-400 border border-slate-700/50 hover:border-rose-500/30 transition-all active:scale-95"
+                              title="Remover alimento desta opção"
+                              aria-label={`Remover ${item.foodName}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
               </div>
+
+              {/* Botão Discreto para Adicionar Alimento à Opção Ativa */}
+              <button
+                type="button"
+                onClick={() => onOpenAddItem(meal.id, meal.name, activeOption.optionNumber)}
+                className="w-full py-2 px-3 rounded-2xl border border-dashed border-slate-700/80 hover:border-emerald-500/40 bg-slate-900/30 hover:bg-emerald-500/5 text-xs font-semibold text-slate-400 hover:text-emerald-300 flex items-center justify-center gap-1.5 transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Adicionar Alimento à Opção {activeOption.optionNumber}</span>
+              </button>
 
               {/* Totais Nutricionais da Opção */}
               <div className="bg-slate-800/30 border border-slate-800 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -512,6 +667,39 @@ export function MealCards({ meals, currentDate, loggedEntries }: MealCardsProps)
     });
   };
 
+  // 5. Edição de Gramagem, Remoção, Adição de Item e Cadastro de Alimento Custom
+  const [isCustomFoodModalOpen, setIsCustomFoodModalOpen] = useState<boolean>(false);
+  const [addItemModalData, setAddItemModalData] = useState<{
+    isOpen: boolean;
+    mealId: string;
+    mealName: string;
+    optionNumber: number;
+  }>({
+    isOpen: false,
+    mealId: '',
+    mealName: '',
+    optionNumber: 1,
+  });
+
+  const handleUpdateItemWeight = async (itemId: string, weightG: number) => {
+    await updateMealItemWeightServerAction(itemId, weightG);
+    router.refresh();
+  };
+
+  const handleRemoveMealItem = async (itemId: string) => {
+    await removeMealItemServerAction(itemId);
+    router.refresh();
+  };
+
+  const handleOpenAddItem = (mealId: string, mealName: string, optionNumber: number) => {
+    setAddItemModalData({
+      isOpen: true,
+      mealId,
+      mealName,
+      optionNumber,
+    });
+  };
+
   const completedCount = meals.filter((m) => Boolean(completedMeals[m.id])).length;
 
   return (
@@ -523,17 +711,26 @@ export function MealCards({ meals, currentDate, loggedEntries }: MealCardsProps)
             <Utensils className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+            <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2 flex-wrap">
               Gestor de Refeições Prescritas
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-emerald-400 border border-slate-700">
                 {completedCount} de {meals.length} consumidas
               </span>
             </h2>
             <p className="text-xs text-slate-400">
-              Alternância instantânea de opções, check de dieta e substituição equivalente em tempo real
+              Alternância de opções, edição de gramagens, cadastro custom e substituição em tempo real
             </p>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setIsCustomFoodModalOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold self-start sm:self-auto transition-all active:scale-95 whitespace-nowrap"
+        >
+          <PlusCircle className="w-4 h-4 text-emerald-400" />
+          <span>+ Novo Alimento</span>
+        </button>
       </div>
 
       {/* Lista dos Cards de Refeição: key={meal.id} estrita */}
@@ -548,6 +745,9 @@ export function MealCards({ meals, currentDate, loggedEntries }: MealCardsProps)
             onOpenSubstitution={handleOpenSubstitution}
             onOpenOffDiet={handleOpenOffDiet}
             onRemoveOffDiet={handleRemoveOffDiet}
+            onUpdateItemWeight={handleUpdateItemWeight}
+            onRemoveMealItem={handleRemoveMealItem}
+            onOpenAddItem={handleOpenAddItem}
             offDietEntry={offDietEntries[meal.id]}
           />
         ))}
@@ -572,6 +772,21 @@ export function MealCards({ meals, currentDate, loggedEntries }: MealCardsProps)
         mealId={offDietMealId}
         mealName={offDietMealName}
         onSuccess={handleOffDietSuccess}
+      />
+
+      {/* Modal de Cadastro de Alimento Custom */}
+      <CustomFoodModal
+        isOpen={isCustomFoodModalOpen}
+        onClose={() => setIsCustomFoodModalOpen(false)}
+      />
+
+      {/* Modal de Adicionar Alimento à Opção da Refeição */}
+      <AddMealItemModal
+        isOpen={addItemModalData.isOpen}
+        onClose={() => setAddItemModalData((prev) => ({ ...prev, isOpen: false }))}
+        mealId={addItemModalData.mealId}
+        mealName={addItemModalData.mealName}
+        optionNumber={addItemModalData.optionNumber}
       />
     </div>
   );

@@ -112,3 +112,13 @@ progress.macro-progress-ring::slider-fill {
   display: none;
   background: none;
 }
+
+/* Native modal dialog scroll containment */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}

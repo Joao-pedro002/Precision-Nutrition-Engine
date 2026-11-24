@@ -15,6 +15,10 @@ import {
   getQuickSubstitutionsApi,
   deactivateActiveTargetApi,
   recordWeightApi,
+  createCustomFoodApi,
+  updateMealItemWeightApi,
+  removeMealItemApi,
+  addMealOptionItemApi,
 } from '@/lib/api';
 import {
   WaterUpdateResponse,
@@ -177,4 +181,47 @@ export async function recordWeightServerAction(
   const result = await recordWeightApi(logDate, weightKg);
   revalidatePath('/');
   return result;
+}
+
+/**
+ * Server Action: Cadastra um alimento customizado por 100g
+ */
+export async function createCustomFoodServerAction(
+  request: import('@/types/nutrition').CustomFoodRequest
+): Promise<Food> {
+  const created = await createCustomFoodApi(request);
+  revalidatePath('/');
+  return created;
+}
+
+/**
+ * Server Action: Atualiza a gramagem de um item da refeição prescrita
+ */
+export async function updateMealItemWeightServerAction(
+  itemId: string,
+  weightG: number
+): Promise<void> {
+  await updateMealItemWeightApi(itemId, weightG);
+  revalidatePath('/');
+}
+
+/**
+ * Server Action: Remove um item de uma opção de refeição prescrita
+ */
+export async function removeMealItemServerAction(itemId: string): Promise<void> {
+  await removeMealItemApi(itemId);
+  revalidatePath('/');
+}
+
+/**
+ * Server Action: Adiciona um alimento a uma opção da refeição prescrita
+ */
+export async function addMealOptionItemServerAction(
+  mealId: string,
+  optionNumber: number,
+  foodId: string,
+  weightG: number
+): Promise<void> {
+  await addMealOptionItemApi(mealId, optionNumber, foodId, weightG);
+  revalidatePath('/');
 }

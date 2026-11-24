@@ -1,6 +1,7 @@
 package com.precisionnutrition.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.precisionnutrition.model.dto.CustomFoodRequest;
 import com.precisionnutrition.model.dto.FoodCreateRequest;
 import com.precisionnutrition.model.dto.MicronutrientsData;
 import com.precisionnutrition.model.dto.SubstitutionRequest;
@@ -72,6 +73,27 @@ class FoodControllerIntegrationTest {
                 .andExpect(jsonPath("$.name", is("Whey Protein Isolado 90%")))
                 .andExpect(jsonPath("$.source", is("CUSTOM")))
                 .andExpect(jsonPath("$.dominantMacro", is("PROTEIN")));
+    }
+
+    @Test
+    @DisplayName("Integração: Deve rejeitar cadastro de alimento custom com macros negativos (HTTP 400)")
+    void testCreateCustomFoodNegativeMacrosReturnsBadRequest() throws Exception {
+        CustomFoodRequest invalidRequest = new CustomFoodRequest(
+                "Alimento Inválido",
+                "Personalizados",
+                null,
+                new BigDecimal("-50.00"),
+                new BigDecimal("-5.00"),
+                new BigDecimal("10.00"),
+                new BigDecimal("2.00"),
+                BigDecimal.ZERO,
+                null
+        );
+
+        mockMvc.perform(post("/api/v1/foods/custom")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidRequest)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

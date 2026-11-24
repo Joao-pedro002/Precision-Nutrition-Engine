@@ -1,7 +1,9 @@
 package com.precisionnutrition.controller;
 
+import com.precisionnutrition.model.dto.AddMealOptionItemRequest;
 import com.precisionnutrition.model.dto.MealItemRequest;
 import com.precisionnutrition.model.dto.MealRequest;
+import com.precisionnutrition.model.dto.UpdateMealItemWeightRequest;
 import com.precisionnutrition.model.entity.Meal;
 import com.precisionnutrition.model.entity.MealItem;
 import com.precisionnutrition.service.MealService;
@@ -59,6 +61,28 @@ public class MealController {
     public ResponseEntity<MealItem> addItemToMeal(@PathVariable UUID id, @Valid @RequestBody MealItemRequest request) {
         MealItem item = mealService.addItemToMeal(id, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(item);
+    }
+
+    @PostMapping("/{mealId}/options/{optionNumber}/items")
+    public ResponseEntity<MealItem> addItemToMealOption(
+            @PathVariable UUID mealId,
+            @PathVariable Integer optionNumber,
+            @Valid @RequestBody AddMealOptionItemRequest request
+    ) {
+        MealItem item = mealService.addItemToMeal(
+                mealId,
+                new MealItemRequest(request.foodId(), optionNumber, request.weightG())
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(item);
+    }
+
+    @PatchMapping("/items/{itemId}")
+    public ResponseEntity<MealItem> updateMealItemWeight(
+            @PathVariable UUID itemId,
+            @Valid @RequestBody UpdateMealItemWeightRequest request
+    ) {
+        MealItem updated = mealService.updateMealItemWeight(itemId, request.weightG());
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/items/{itemId}")

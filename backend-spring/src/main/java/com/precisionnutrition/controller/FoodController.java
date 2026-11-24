@@ -1,6 +1,6 @@
 package com.precisionnutrition.controller;
 
-import com.precisionnutrition.model.dto.FoodCreateRequest;
+import com.precisionnutrition.model.dto.CustomFoodRequest;
 import com.precisionnutrition.model.entity.Food;
 import com.precisionnutrition.model.enums.DominantMacro;
 import com.precisionnutrition.model.enums.FoodSource;
@@ -67,7 +67,7 @@ public class FoodController {
     }
 
     @PostMapping("/custom")
-    public ResponseEntity<Food> createCustomFood(@Valid @RequestBody FoodCreateRequest request) {
+    public ResponseEntity<Food> createCustomFood(@Valid @RequestBody CustomFoodRequest request) {
         Food created = foodService.createCustomFood(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }

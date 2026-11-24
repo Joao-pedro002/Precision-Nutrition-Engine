@@ -298,4 +298,15 @@ export interface WeightHistoryResponse {
   history: WeightLogEntry[];
 }
 
+export interface CustomFoodRequest {
+  name: string;
+  category?: string;
+  energyKcal: number;
+  proteinG: number;
+  carbohydrateG: number;
+  lipidG: number;
+  fiberG?: number;
+}
+
+
 
