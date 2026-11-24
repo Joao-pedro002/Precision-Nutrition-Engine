@@ -1,4 +1,4 @@
-const CACHE_NAME = 'precision-nutrition-v1';
+const CACHE_NAME = 'precision-nutrition-v2';
 const OFFLINE_URL = '/offline';
 
 const PRECACHE_ASSETS = [
