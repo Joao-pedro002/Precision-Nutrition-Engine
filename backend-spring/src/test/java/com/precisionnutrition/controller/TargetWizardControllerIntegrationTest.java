@@ -5,6 +5,9 @@ import com.precisionnutrition.model.dto.TargetCalculationRequest;
 import com.precisionnutrition.model.enums.ActivityLevel;
 import com.precisionnutrition.model.enums.DietGoal;
 import com.precisionnutrition.model.enums.Gender;
+import com.precisionnutrition.model.enums.UserRole;
+import com.precisionnutrition.repository.DailyTargetRepository;
+import com.precisionnutrition.repository.MealRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +19,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+import static com.precisionnutrition.support.TestAuthSupport.asDefaultUser;
+import static com.precisionnutrition.support.TestAuthSupport.asUser;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -31,6 +36,12 @@ class TargetWizardControllerIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private DailyTargetRepository dailyTargetRepository;
+
+    @Autowired
+    private MealRepository mealRepository;
+
     @Test
     @DisplayName("Integração Épica 1: Deve calcular BMR e TDEE via POST /api/v1/targets/calculate")
     void testCalculateTargets() throws Exception {
@@ -45,6 +56,7 @@ class TargetWizardControllerIntegrationTest {
         );
 
         mockMvc.perform(post("/api/v1/targets/calculate")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -59,8 +71,9 @@ class TargetWizardControllerIntegrationTest {
     @Test
     @DisplayName("Integração Épica 1: Deve calcular e aplicar novo protocolo via POST /api/v1/targets/calculate-and-apply")
     void testCalculateAndApply() throws Exception {
+        UUID isolatedUserId = UUID.randomUUID();
         TargetCalculationRequest request = new TargetCalculationRequest(
-                UUID.randomUUID(),
+                isolatedUserId,
                 Gender.FEMALE,
                 28,
                 new BigDecimal("58.00"),
@@ -69,21 +82,29 @@ class TargetWizardControllerIntegrationTest {
                 DietGoal.MAINTAIN
         );
 
-        mockMvc.perform(post("/api/v1/targets/calculate-and-apply")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id", notNullValue()))
-                .andExpect(jsonPath("$.isActive", is(true)))
-                .andExpect(jsonPath("$.targetSource", is("CALCULATED")))
-                .andExpect(jsonPath("$.targetKcalMax", greaterThan(0.0)));
+        try {
+            mockMvc.perform(post("/api/v1/targets/calculate-and-apply")
+                            .with(asUser(isolatedUserId, UserRole.USER))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.id", notNullValue()))
+                    .andExpect(jsonPath("$.isActive", is(true)))
+                    .andExpect(jsonPath("$.targetSource", is("CALCULATED")))
+                    .andExpect(jsonPath("$.targetKcalMax", greaterThan(0.0)));
+        } finally {
+            mealRepository.deleteAll(mealRepository.findByUserIdOrderByOrderIndexAsc(isolatedUserId));
+            dailyTargetRepository.deleteAll(dailyTargetRepository.findByUserIdOrderByCreatedAtDesc(isolatedUserId));
+        }
     }
 
     @Test
     @DisplayName("Integração: Deve desativar meta ativa via POST /api/v1/targets/deactivate")
     void testDeactivateTargetEndpoint() throws Exception {
         UUID testUser = UUID.randomUUID();
-        mockMvc.perform(post("/api/v1/targets/deactivate").param("userId", testUser.toString()))
+        mockMvc.perform(post("/api/v1/targets/deactivate")
+                        .with(asUser(testUser, UserRole.USER))
+                        .param("userId", testUser.toString()))
                 .andExpect(status().isNoContent());
     }
 
@@ -91,6 +112,7 @@ class TargetWizardControllerIntegrationTest {
     @DisplayName("Integração Épica 3: Deve executar expurgo manual via POST /api/v1/logs/purge-old")
     void testPurgeOldLogsEndpoint() throws Exception {
         mockMvc.perform(post("/api/v1/logs/purge-old")
+                        .with(asDefaultUser())
                         .param("days", "6")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())

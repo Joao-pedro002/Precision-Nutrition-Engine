@@ -6,6 +6,7 @@ import { WaterTracker } from '@/components/WaterTracker';
 import { WeightTracker } from '@/components/WeightTracker';
 import { MicronutrientMatrix } from '@/components/MicronutrientMatrix';
 import { DateSelector } from '@/components/DateSelector';
+import { LogoutButton } from '@/components/LogoutButton';
 import { MealCards } from '@/components/MealCards';
 import { Sparkles, AlertCircle } from 'lucide-react';
 import { WeightHistoryResponse } from '@/types/nutrition';
@@ -29,6 +30,16 @@ function resolveSafeDate(rawDate?: string): string {
   return `${year}-${month}-${day}`;
 }
 
+function isNextRedirectError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'digest' in error &&
+    typeof (error as { digest?: unknown }).digest === 'string' &&
+    (error as { digest: string }).digest.startsWith('NEXT_REDIRECT')
+  );
+}
+
 export default async function DashboardPage({ searchParams }: PageProps) {
   const currentDate = resolveSafeDate(searchParams?.date);
 
@@ -39,11 +50,17 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   try {
     const [dashboard, weight] = await Promise.all([
       getDashboardData(currentDate),
-      getWeightHistoryApi().catch(() => null),
+      getWeightHistoryApi().catch((err) => {
+        if (isNextRedirectError(err)) throw err;
+        return null;
+      }),
     ]);
     dashboardData = dashboard;
     weightHistory = weight;
   } catch (error: unknown) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
     fetchError = error instanceof Error ? error.message : 'Falha ao conectar com o back-end Spring Boot (Porta 8080).';
   }
 
@@ -72,7 +89,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           </div>
         </div>
 
-        <DateSelector currentDate={currentDate} />
+        <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+          <DateSelector currentDate={currentDate} />
+          <LogoutButton />
+        </div>
       </header>
 
       {/* Alerta de Conexão se o Back-end estiver desligado */}

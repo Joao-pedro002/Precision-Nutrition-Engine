@@ -25,12 +25,10 @@ export function CalorieHeader({ summary, activeTarget, currentDate, mealsCount =
     }
   }, [hasActiveTarget]);
 
-  const handleLogout = async () => {
-    if (confirm('Deseja realmente sair e reiniciar a sessão de metas nutricionais?')) {
+  const handleResetTarget = async () => {
+    if (confirm('Deseja desativar a meta atual e reconfigurar seu protocolo nutricional?')) {
       setIsLoggingOut(true);
       try {
-        localStorage.clear();
-        sessionStorage.clear();
         await deactivateActiveTargetServerAction();
         window.location.reload();
       } catch (err) {
@@ -128,17 +126,17 @@ export function CalorieHeader({ summary, activeTarget, currentDate, mealsCount =
           {hasActiveTarget && (
             <button
               type="button"
-              onClick={handleLogout}
+              onClick={handleResetTarget}
               disabled={isLoggingOut}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-700 bg-slate-800/80 hover:bg-rose-500/15 hover:border-rose-500/30 text-slate-300 hover:text-rose-300 text-xs font-semibold transition disabled:opacity-50"
-              title="Sair e reiniciar sessão de metas"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-700 bg-slate-800/80 hover:bg-amber-500/15 hover:border-amber-500/30 text-slate-300 hover:text-amber-300 text-xs font-semibold transition disabled:opacity-50"
+              title="Desativar meta atual e reabrir o Wizard"
             >
               {isLoggingOut ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-400" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
               ) : (
                 <LogOut className="w-3.5 h-3.5 text-slate-400" />
               )}
-              <span>{isLoggingOut ? 'Saindo...' : 'Sair'}</span>
+              <span>{isLoggingOut ? 'Resetando...' : 'Resetar Metas'}</span>
             </button>
           )}
           <div className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-semibold ${badge.color}`}>

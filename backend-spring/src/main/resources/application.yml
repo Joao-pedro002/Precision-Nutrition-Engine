@@ -45,3 +45,12 @@ usda:
   api:
     key: ${USDA_API_KEY:DEMO_KEY}
     base-url: ${USDA_BASE_URL:https://api.nal.usda.gov/fdc/v1}
+
+app:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:dev-only-precision-nutrition-jwt-secret-key-min-32-bytes}
+      expiration-seconds: ${JWT_EXPIRATION_SECONDS:2592000}
+    admin:
+      email: ${ADMIN_EMAIL:}
+      password: ${ADMIN_PASSWORD:}

@@ -38,12 +38,17 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?Configure POSTGRES_DB no arquivo .env}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?Configure POSTGRES_USER no arquivo .env}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Configure POSTGRES_PASSWORD no arquivo .env}
       USDA_API_KEY: ${USDA_API_KEY:-DEMO_KEY}
       USDA_BASE_URL: ${USDA_BASE_URL:-https://api.nal.usda.gov/fdc/v1}
       CORS_ALLOWED_ORIGIN: https://${APP_DOMAIN:-localhost}
+      JWT_SECRET: ${JWT_SECRET:?Configure JWT_SECRET no arquivo .env}
+      JWT_EXPIRATION_SECONDS: ${JWT_EXPIRATION_SECONDS:-2592000}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health || exit 1"]
       interval: 15s

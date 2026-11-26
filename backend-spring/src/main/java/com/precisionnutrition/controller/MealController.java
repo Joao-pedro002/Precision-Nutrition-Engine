@@ -7,8 +7,8 @@ import com.precisionnutrition.model.dto.MealRequest;
 import com.precisionnutrition.model.dto.UpdateMealItemWeightRequest;
 import com.precisionnutrition.model.entity.Meal;
 import com.precisionnutrition.model.entity.MealItem;
+import com.precisionnutrition.security.SecurityUtils;
 import com.precisionnutrition.service.MealService;
-import com.precisionnutrition.util.AppConstants;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,9 +28,9 @@ public class MealController {
     private final MealService mealService;
 
     @GetMapping
-    public ResponseEntity<List<Meal>> getUserMeals(@RequestParam(name = "userId", required = false) UUID userId) {
-        UUID resolvedUserId = userId != null ? userId : AppConstants.DEFAULT_USER_ID;
-        List<Meal> meals = mealService.getUserMeals(resolvedUserId);
+    public ResponseEntity<List<Meal>> getUserMeals() {
+        UUID currentUserId = SecurityUtils.getCurrentUserId();
+        List<Meal> meals = mealService.getUserMeals(currentUserId);
         return ResponseEntity.ok(meals);
     }
 
@@ -42,13 +42,29 @@ public class MealController {
 
     @PostMapping
     public ResponseEntity<Meal> createMeal(@Valid @RequestBody CreateMealRequest request) {
-        Meal created = mealService.createMeal(request);
+        UUID currentUserId = SecurityUtils.getCurrentUserId();
+        CreateMealRequest scoped = new CreateMealRequest(
+                currentUserId,
+                request.name(),
+                request.orderIndex(),
+                request.targetTime(),
+                request.items()
+        );
+        Meal created = mealService.createMeal(scoped);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Meal> updateMeal(@PathVariable UUID id, @Valid @RequestBody MealRequest request) {
-        Meal updated = mealService.updateMeal(id, request);
+        UUID currentUserId = SecurityUtils.getCurrentUserId();
+        MealRequest scoped = new MealRequest(
+                currentUserId,
+                request.name(),
+                request.orderIndex(),
+                request.targetTime(),
+                request.items()
+        );
+        Meal updated = mealService.updateMeal(id, scoped);
         return ResponseEntity.ok(updated);
     }
 

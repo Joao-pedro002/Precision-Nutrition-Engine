@@ -1,0 +1,46 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { AUTH_COOKIE_NAME } from '@/lib/auth';
+
+const PUBLIC_PATHS = [
+  '/login',
+  '/offline',
+  '/manifest.webmanifest',
+  '/sw.js',
+  '/favicon.ico',
+];
+
+function isPublicPath(pathname: string): boolean {
+  if (PUBLIC_PATHS.includes(pathname)) {
+    return true;
+  }
+  if (
+    pathname.startsWith('/_next/') ||
+    pathname.startsWith('/icons/')
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+
+  if (!token) {
+    const loginUrl = new URL('/login', request.url);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|icons/|sw.js|manifest.webmanifest|offline).*)',
+  ],
+};

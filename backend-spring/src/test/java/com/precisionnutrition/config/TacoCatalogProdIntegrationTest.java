@@ -7,6 +7,7 @@ import com.precisionnutrition.model.enums.ActivityLevel;
 import com.precisionnutrition.model.enums.DietGoal;
 import com.precisionnutrition.model.enums.FoodSource;
 import com.precisionnutrition.model.enums.Gender;
+import com.precisionnutrition.model.enums.UserRole;
 import com.precisionnutrition.repository.DailyTargetRepository;
 import com.precisionnutrition.repository.FoodRepository;
 import com.precisionnutrition.repository.MealRepository;
@@ -17,12 +18,15 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
+import static com.precisionnutrition.support.TestAuthSupport.asDefaultUser;
+import static com.precisionnutrition.support.TestAuthSupport.asUser;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -33,6 +37,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("prod")
+@TestPropertySource(properties = {
+        "app.security.jwt.secret=test-prod-profile-jwt-secret-key-at-least-32-bytes-long"
+})
 class TacoCatalogProdIntegrationTest {
 
     @Autowired
@@ -65,6 +72,7 @@ class TacoCatalogProdIntegrationTest {
 
         // Busca por 'goma' deve retornar Tapioca TACO localmente com prioridade
         mockMvc.perform(get("/api/v1/foods/search")
+                        .with(asDefaultUser())
                         .param("q", "goma")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -94,6 +102,7 @@ class TacoCatalogProdIntegrationTest {
 
             // 1. Primeira ativação com 0 refeições -> deve gerar as 4 refeições base com itens TACO
             mockMvc.perform(post("/api/v1/targets/calculate-and-apply")
+                            .with(asUser(freshUserId, UserRole.USER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isCreated())
@@ -108,6 +117,7 @@ class TacoCatalogProdIntegrationTest {
 
             // 2. Segunda ativação quando o usuário JÁ possui refeições -> NÃO pode duplicar nem sobrescrever
             mockMvc.perform(post("/api/v1/targets/calculate-and-apply")
+                            .with(asUser(freshUserId, UserRole.USER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isCreated());

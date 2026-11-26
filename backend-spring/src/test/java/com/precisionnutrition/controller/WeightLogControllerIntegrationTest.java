@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import static com.precisionnutrition.support.TestAuthSupport.asDefaultUser;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -50,6 +51,7 @@ class WeightLogControllerIntegrationTest {
         // 1. Primeira pesagem
         WeightLogRequest req1 = new WeightLogRequest(day1, new BigDecimal("68.50"), AppConstants.DEFAULT_USER_ID);
         mockMvc.perform(post("/api/v1/weight")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req1)))
                 .andExpect(status().isOk())
@@ -59,6 +61,7 @@ class WeightLogControllerIntegrationTest {
         // 2. Segunda pesagem em data posterior (hoje)
         WeightLogRequest req2 = new WeightLogRequest(day2, new BigDecimal("68.30"), AppConstants.DEFAULT_USER_ID);
         mockMvc.perform(post("/api/v1/weight")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req2)))
                 .andExpect(status().isOk())
@@ -67,6 +70,7 @@ class WeightLogControllerIntegrationTest {
         // 3. Atualização idempotente na mesma data (day2: 68.30 -> 68.20)
         WeightLogRequest req2Update = new WeightLogRequest(day2, new BigDecimal("68.20"), AppConstants.DEFAULT_USER_ID);
         mockMvc.perform(post("/api/v1/weight")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req2Update)))
                 .andExpect(status().isOk())
@@ -74,6 +78,7 @@ class WeightLogControllerIntegrationTest {
 
         // 4. Histórico ordenado decrescentemente com delta exato (-0.30 kg) e apenas 2 registros
         mockMvc.perform(get("/api/v1/weight/history")
+                        .with(asDefaultUser())
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.latestWeightKg", is(68.2)))
@@ -92,6 +97,7 @@ class WeightLogControllerIntegrationTest {
         // 1. Tentar registrar peso em data futura deve retornar HTTP 400 Bad Request
         WeightLogRequest futureReq = new WeightLogRequest(tomorrow, new BigDecimal("67.50"), AppConstants.DEFAULT_USER_ID);
         mockMvc.perform(post("/api/v1/weight")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(futureReq)))
                 .andExpect(status().isBadRequest());
@@ -111,6 +117,7 @@ class WeightLogControllerIntegrationTest {
 
         // 3. GET /history deve ignorar o registro futuro residual e manter 68.00 kg de hoje como última pesagem
         mockMvc.perform(get("/api/v1/weight/history")
+                        .with(asDefaultUser())
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.latestWeightKg", is(68.0)))

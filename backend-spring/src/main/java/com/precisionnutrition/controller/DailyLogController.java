@@ -3,15 +3,16 @@ package com.precisionnutrition.controller;
 import com.precisionnutrition.model.dto.*;
 import com.precisionnutrition.model.entity.DailyLog;
 import com.precisionnutrition.model.entity.DailyLogEntry;
+import com.precisionnutrition.security.SecurityUtils;
 import com.precisionnutrition.service.DailyLogService;
 import com.precisionnutrition.service.DailyLogTtlCleanupService;
-import com.precisionnutrition.util.AppConstants;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -29,11 +30,10 @@ public class DailyLogController {
 
     @GetMapping("/{date}")
     public ResponseEntity<DailyLogResponse> getDailyLog(
-            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @RequestParam(name = "userId", required = false) UUID userId
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
-        UUID resolvedUserId = userId != null ? userId : AppConstants.DEFAULT_USER_ID;
-        DailyLogResponse response = dailyLogService.getDailyLogResponse(resolvedUserId, date);
+        UUID currentUserId = SecurityUtils.getCurrentUserId();
+        DailyLogResponse response = dailyLogService.getDailyLogResponse(currentUserId, date);
         return ResponseEntity.ok(response);
     }
 
@@ -42,7 +42,9 @@ public class DailyLogController {
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @Valid @RequestBody WaterUpdateRequest request
     ) {
-        WaterUpdateResponse response = dailyLogService.updateWater(date, request);
+        UUID currentUserId = SecurityUtils.getCurrentUserId();
+        WaterUpdateRequest scoped = new WaterUpdateRequest(request.mode(), request.amountMl(), currentUserId);
+        WaterUpdateResponse response = dailyLogService.updateWater(date, scoped);
         return ResponseEntity.ok(response);
     }
 
@@ -51,7 +53,9 @@ public class DailyLogController {
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @Valid @RequestBody CheckMealRequest request
     ) {
-        DailyLog updatedLog = dailyLogService.checkMealOption(date, request);
+        UUID currentUserId = SecurityUtils.getCurrentUserId();
+        CheckMealRequest scoped = new CheckMealRequest(request.mealId(), request.optionNumber(), currentUserId);
+        DailyLog updatedLog = dailyLogService.checkMealOption(date, scoped);
         return ResponseEntity.ok(updatedLog);
     }
 
@@ -60,7 +64,9 @@ public class DailyLogController {
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @Valid @RequestBody CheckMealRequest request
     ) {
-        DailyLog updatedLog = dailyLogService.uncheckMealOption(date, request);
+        UUID currentUserId = SecurityUtils.getCurrentUserId();
+        CheckMealRequest scoped = new CheckMealRequest(request.mealId(), request.optionNumber(), currentUserId);
+        DailyLog updatedLog = dailyLogService.uncheckMealOption(date, scoped);
         return ResponseEntity.ok(updatedLog);
     }
 
@@ -69,7 +75,20 @@ public class DailyLogController {
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @Valid @RequestBody OffDietEntryRequest request
     ) {
-        DailyLogEntry createdEntry = dailyLogService.addOffDietEntry(date, request);
+        UUID currentUserId = SecurityUtils.getCurrentUserId();
+        OffDietEntryRequest scoped = new OffDietEntryRequest(
+                request.mealId(),
+                request.foodId(),
+                request.customName(),
+                request.weightConsumedG(),
+                request.energyKcal(),
+                request.proteinG(),
+                request.carbohydrateG(),
+                request.lipidG(),
+                request.fiberG(),
+                currentUserId
+        );
+        DailyLogEntry createdEntry = dailyLogService.addOffDietEntry(date, scoped);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdEntry);
     }
 
@@ -80,6 +99,7 @@ public class DailyLogController {
     }
 
     @PostMapping("/purge-old")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> purgeOldLogs(
             @RequestParam(name = "days", required = false, defaultValue = "6") int days
     ) {

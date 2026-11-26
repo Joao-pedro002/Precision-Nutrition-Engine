@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+import static com.precisionnutrition.support.TestAuthSupport.asDefaultUser;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -53,6 +54,7 @@ class DashboardControllerIntegrationTest {
         LocalDate today = LocalDate.now();
 
         mockMvc.perform(get("/api/v1/dashboard")
+                        .with(asDefaultUser())
                         .param("date", today.toString())
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -73,6 +75,7 @@ class DashboardControllerIntegrationTest {
         WaterUpdateRequest request = new WaterUpdateRequest("INCREMENT", new BigDecimal("500.00"), AppConstants.DEFAULT_USER_ID);
 
         mockMvc.perform(patch("/api/v1/logs/" + testDate + "/water")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -95,6 +98,7 @@ class DashboardControllerIntegrationTest {
 
         // 1. Toggle ON
         mockMvc.perform(post("/api/v1/logs/" + testDate + "/check-meal")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(checkRequest)))
                 .andExpect(status().isOk())
@@ -102,6 +106,7 @@ class DashboardControllerIntegrationTest {
 
         // 2. Verificar no Dashboard que a refeição está completada
         mockMvc.perform(get("/api/v1/dashboard")
+                        .with(asDefaultUser())
                         .param("date", testDate.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.meals[0].isCompleted", is(true)))
@@ -110,6 +115,7 @@ class DashboardControllerIntegrationTest {
 
         // 3. Toggle OFF (Clicar novamente na mesma opção)
         mockMvc.perform(post("/api/v1/logs/" + testDate + "/check-meal")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(checkRequest)))
                 .andExpect(status().isOk())
@@ -134,6 +140,7 @@ class DashboardControllerIntegrationTest {
         );
 
         mockMvc.perform(post("/api/v1/logs/" + testDate + "/off-diet")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -155,6 +162,7 @@ class DashboardControllerIntegrationTest {
 
         // 1. Marcar primeiro
         mockMvc.perform(post("/api/v1/logs/" + testDate + "/check-meal")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(checkRequest)))
                 .andExpect(status().isOk())
@@ -162,6 +170,7 @@ class DashboardControllerIntegrationTest {
 
         // 2. Desmarcar via /uncheck-meal
         mockMvc.perform(post("/api/v1/logs/" + testDate + "/uncheck-meal")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(checkRequest)))
                 .andExpect(status().isOk())
@@ -191,6 +200,7 @@ class DashboardControllerIntegrationTest {
 
         // 1. Inserir refeição livre vinculada à refeição 1
         mockMvc.perform(post("/api/v1/logs/" + testDate + "/off-diet")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(offDietRequest)))
                 .andExpect(status().isCreated())
@@ -198,6 +208,7 @@ class DashboardControllerIntegrationTest {
 
         // 2. Verificar se o Dashboard reflete as 2500 kcal da refeição livre
         mockMvc.perform(get("/api/v1/dashboard")
+                        .with(asDefaultUser())
                         .param("date", testDate.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary.consumedEnergyKcal", is(2500.0)))
@@ -209,12 +220,14 @@ class DashboardControllerIntegrationTest {
         // 3. Desfazer / cancelar a refeição livre
         CheckMealRequest uncheckRequest = new CheckMealRequest(firstMeal.getId(), 1, AppConstants.DEFAULT_USER_ID);
         mockMvc.perform(post("/api/v1/logs/" + testDate + "/uncheck-meal")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(uncheckRequest)))
                 .andExpect(status().isOk());
 
         // 4. Confirmar que as calorias voltaram para 0
         mockMvc.perform(get("/api/v1/dashboard")
+                        .with(asDefaultUser())
                         .param("date", testDate.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary.consumedEnergyKcal", is(0.0)))
@@ -233,12 +246,14 @@ class DashboardControllerIntegrationTest {
         // 1. Marcar a primeira refeição prescrita (Opção 1)
         CheckMealRequest checkRequest = new CheckMealRequest(firstMeal.getId(), 1, AppConstants.DEFAULT_USER_ID);
         mockMvc.perform(post("/api/v1/logs/" + testDate + "/check-meal")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(checkRequest)))
                 .andExpect(status().isOk());
 
         // 2. Validar soma de P, C, G e percentuais no Dashboard
         String dashboardJsonAfterMeal = mockMvc.perform(get("/api/v1/dashboard")
+                        .with(asDefaultUser())
                         .param("date", testDate.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary.consumedProteinG", greaterThan(0.0)))
@@ -275,6 +290,7 @@ class DashboardControllerIntegrationTest {
         );
 
         mockMvc.perform(post("/api/v1/logs/" + testDate + "/off-diet")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(offDietOnlyCalories)))
                 .andExpect(status().isCreated())
@@ -286,6 +302,7 @@ class DashboardControllerIntegrationTest {
 
         // 4. Validar que as calorias somaram +450 e os macros P, C e G permaneceram intactos sem erro
         mockMvc.perform(get("/api/v1/dashboard")
+                        .with(asDefaultUser())
                         .param("date", testDate.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary.consumedEnergyKcal", closeTo(kcalBefore + 450.0, 0.01)))
@@ -302,6 +319,7 @@ class DashboardControllerIntegrationTest {
 
         for (LocalDate targetDate : List.of(futureDate, pastDate)) {
             mockMvc.perform(get("/api/v1/dashboard")
+                            .with(asDefaultUser())
                             .param("date", targetDate.toString())
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())

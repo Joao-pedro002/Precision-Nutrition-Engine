@@ -10,11 +10,15 @@ import com.precisionnutrition.model.entity.MealItem;
 import com.precisionnutrition.repository.FoodRepository;
 import com.precisionnutrition.repository.MealItemRepository;
 import com.precisionnutrition.repository.MealRepository;
+import com.precisionnutrition.security.AuthenticatedUser;
 import com.precisionnutrition.util.AppConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.Hibernate;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,8 +50,10 @@ public class MealServiceImpl implements MealService {
     @Override
     @Transactional(readOnly = true)
     public Meal getMealById(UUID mealId) {
-        return mealRepository.findById(mealId)
+        Meal meal = mealRepository.findById(mealId)
                 .orElseThrow(() -> new IllegalArgumentException("Refeição não encontrada para ID: " + mealId));
+        assertMealOwnership(meal);
+        return meal;
     }
 
     @Override
@@ -151,6 +157,7 @@ public class MealServiceImpl implements MealService {
     public MealItem updateMealItemWeight(UUID itemId, BigDecimal weightG) {
         MealItem item = mealItemRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Item de refeição não encontrado para ID: " + itemId));
+        assertMealOwnership(item.getMeal());
 
         item.setWeightG(weightG.setScale(2, RoundingMode.HALF_UP));
         MealItem saved = mealItemRepository.save(item);
@@ -163,7 +170,17 @@ public class MealServiceImpl implements MealService {
     public void removeItemFromMeal(UUID itemId) {
         MealItem item = mealItemRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Item de refeição não encontrado para ID: " + itemId));
+        assertMealOwnership(item.getMeal());
         mealItemRepository.delete(item);
+    }
+
+    private void assertMealOwnership(Meal meal) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof AuthenticatedUser user) {
+            if (meal != null && meal.getUserId() != null && !meal.getUserId().equals(user.id())) {
+                throw new AccessDeniedException("Você não tem permissão para acessar ou modificar esta refeição.");
+            }
+        }
     }
 
     @Override

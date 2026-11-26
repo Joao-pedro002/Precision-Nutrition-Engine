@@ -1,7 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { AUTH_COOKIE_NAME, AUTH_COOKIE_MAX_AGE_SECONDS } from '@/lib/auth';
 import {
+  loginApi,
   updateWaterApi,
   checkMealOptionApi,
   uncheckMealOptionApi,
@@ -167,11 +171,50 @@ export async function getQuickSubstitutionsServerAction(
 }
 
 /**
- * Server Action: Desativa a meta ativa (Logout / Reset de Sessão)
+ * Server Action: Desativa a meta ativa (Reset de Protocolo)
  */
-export async function deactivateActiveTargetServerAction(userId?: string): Promise<void> {
-  await deactivateActiveTargetApi(userId);
+export async function deactivateActiveTargetServerAction(): Promise<void> {
+  await deactivateActiveTargetApi();
   revalidatePath('/');
+}
+
+/**
+ * Server Action: Login com gravação de JWT em cookie HttpOnly persistente (30 dias)
+ */
+export async function loginServerAction(
+  email: string,
+  password: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const result = await loginApi(email, password);
+    cookies().set(AUTH_COOKIE_NAME, result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: AUTH_COOKIE_MAX_AGE_SECONDS,
+    });
+    return { success: true };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'E-mail ou senha inválidos',
+    };
+  }
+}
+
+/**
+ * Server Action: Logout removendo o cookie HttpOnly e redirecionando para /login
+ */
+export async function logoutServerAction(): Promise<void> {
+  cookies().set(AUTH_COOKIE_NAME, '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 0,
+  });
+  redirect('/login');
 }
 
 /**

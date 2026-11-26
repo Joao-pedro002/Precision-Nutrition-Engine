@@ -26,6 +26,7 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
+import static com.precisionnutrition.support.TestAuthSupport.asDefaultUser;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -65,11 +66,13 @@ class MealControllerIntegrationTest {
         dailyLogRepository.deleteAll();
         CheckMealRequest checkReq = new CheckMealRequest(targetMeal.getId(), 1, AppConstants.DEFAULT_USER_ID);
         mockMvc.perform(post("/api/v1/logs/" + pastDate + "/check-meal")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(checkReq)))
                 .andExpect(status().isOk());
 
         String pastDashboardBefore = mockMvc.perform(get("/api/v1/dashboard")
+                        .with(asDefaultUser())
                         .param("date", pastDate.toString()))
                 .andExpect(status().isOk())
                 .andReturn()
@@ -91,6 +94,7 @@ class MealControllerIntegrationTest {
         );
 
         String foodJson = mockMvc.perform(post("/api/v1/foods/custom")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(customFoodReq)))
                 .andExpect(status().isCreated())
@@ -103,6 +107,7 @@ class MealControllerIntegrationTest {
         // 3. Adicionar o alimento custom à Opção 1 da refeição (POST /api/v1/meals/{mealId}/options/{optionNumber}/items)
         AddMealOptionItemRequest addItemReq = new AddMealOptionItemRequest(customFoodId, new BigDecimal("80.00"));
         String addedItemJson = mockMvc.perform(post("/api/v1/meals/" + targetMeal.getId() + "/options/1/items")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(addItemReq)))
                 .andExpect(status().isCreated())
@@ -117,6 +122,7 @@ class MealControllerIntegrationTest {
         // 4. Atualizar gramagem via PATCH /api/v1/meals/items/{itemId}
         UpdateMealItemWeightRequest updateReq = new UpdateMealItemWeightRequest(new BigDecimal("120.00"));
         mockMvc.perform(patch("/api/v1/meals/items/" + addedItemId)
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateReq)))
                 .andExpect(status().isOk())
@@ -125,18 +131,21 @@ class MealControllerIntegrationTest {
         // 4b. Rejeitar gramagem <= 0 (HTTP 400)
         UpdateMealItemWeightRequest invalidUpdateReq = new UpdateMealItemWeightRequest(BigDecimal.ZERO);
         mockMvc.perform(patch("/api/v1/meals/items/" + addedItemId)
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidUpdateReq)))
                 .andExpect(status().isBadRequest());
 
         // 5. Garantir que o histórico passado (pastDate) permaneceu 100% intacto
         mockMvc.perform(get("/api/v1/dashboard")
+                        .with(asDefaultUser())
                         .param("date", pastDate.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary.consumedEnergyKcal", closeTo(pastKcalBefore, 0.01)));
 
         // 6. Remover item via DELETE /api/v1/meals/items/{itemId}
-        mockMvc.perform(delete("/api/v1/meals/items/" + addedItemId))
+        mockMvc.perform(delete("/api/v1/meals/items/" + addedItemId)
+                        .with(asDefaultUser()))
                 .andExpect(status().isNoContent());
 
         assertFalse(mealItemRepository.existsById(addedItemId), "Item deve ter sido removido do banco");
@@ -152,6 +161,7 @@ class MealControllerIntegrationTest {
         // 1. Nome vazio deve retornar HTTP 400 Bad Request
         CreateMealRequest invalidReq = new CreateMealRequest(AppConstants.DEFAULT_USER_ID, "   ", null, null, null);
         mockMvc.perform(post("/api/v1/meals")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidReq)))
                 .andExpect(status().isBadRequest());
@@ -166,6 +176,7 @@ class MealControllerIntegrationTest {
         );
 
         String createdJson = mockMvc.perform(post("/api/v1/meals")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validReq)))
                 .andExpect(status().isCreated())
@@ -179,12 +190,14 @@ class MealControllerIntegrationTest {
 
         // 3. Verificar que no Dashboard a refeição recém-criada já vem com Opção 1 vazia pronta para receber alimentos
         mockMvc.perform(get("/api/v1/dashboard")
+                        .with(asDefaultUser())
                         .param("date", LocalDate.now().toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.meals[?(@.id=='" + createdMealId + "')].options[0].optionNumber", contains(1)));
 
         // 4. Remover refeição via DELETE /api/v1/meals/{id} -> HTTP 204
-        mockMvc.perform(delete("/api/v1/meals/" + createdMealId))
+        mockMvc.perform(delete("/api/v1/meals/" + createdMealId)
+                        .with(asDefaultUser()))
                 .andExpect(status().isNoContent());
 
         assertFalse(mealRepository.existsById(createdMealId), "Refeição removida não deve mais existir no plano");

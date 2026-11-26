@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.util.List;
 
+import static com.precisionnutrition.support.TestAuthSupport.asDefaultUser;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -43,6 +44,7 @@ class FoodControllerIntegrationTest {
     @DisplayName("Integração: Deve buscar alimentos na base local via /api/v1/foods/search")
     void testSearchFoods() throws Exception {
         mockMvc.perform(get("/api/v1/foods/search")
+                        .with(asDefaultUser())
                         .param("q", "frango")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -66,6 +68,7 @@ class FoodControllerIntegrationTest {
         );
 
         mockMvc.perform(post("/api/v1/foods/custom")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -91,6 +94,7 @@ class FoodControllerIntegrationTest {
         );
 
         mockMvc.perform(post("/api/v1/foods/custom")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest());
@@ -116,6 +120,7 @@ class FoodControllerIntegrationTest {
         );
 
         mockMvc.perform(post("/api/v1/nutrition/substitute")
+                        .with(asDefaultUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -134,6 +139,7 @@ class FoodControllerIntegrationTest {
         Food frango = frangos.get(0);
 
         mockMvc.perform(get("/api/v1/nutrition/quick-substitutions")
+                        .with(asDefaultUser())
                         .param("foodId", frango.getId().toString())
                         .param("weightG", "150.00")
                         .param("limit", "5")

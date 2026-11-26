@@ -8,10 +8,14 @@ import com.precisionnutrition.repository.DailyLogEntryRepository;
 import com.precisionnutrition.repository.DailyLogRepository;
 import com.precisionnutrition.repository.FoodRepository;
 import com.precisionnutrition.repository.MealRepository;
+import com.precisionnutrition.security.AuthenticatedUser;
 import com.precisionnutrition.util.AppConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.Hibernate;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -134,6 +138,9 @@ public class DailyLogServiceImpl implements DailyLogService {
 
         Meal meal = mealRepository.findById(request.mealId())
                 .orElseThrow(() -> new IllegalArgumentException("Refeição não encontrada: " + request.mealId()));
+        if (meal.getUserId() != null && !meal.getUserId().equals(userId)) {
+            throw new AccessDeniedException("Você não tem permissão para marcar esta refeição.");
+        }
 
         List<DailyLogEntry> existingEntries = dailyLog.getEntries().stream()
                 .filter(e -> e.getMeal() != null && e.getMeal().getId().equals(meal.getId()))
@@ -356,6 +363,12 @@ public class DailyLogServiceImpl implements DailyLogService {
         DailyLogEntry entry = dailyLogEntryRepository.findById(entryId)
                 .orElseThrow(() -> new IllegalArgumentException("Entrada de log não encontrada com ID: " + entryId));
         DailyLog logEntity = entry.getDailyLog();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof AuthenticatedUser user) {
+            if (logEntity != null && logEntity.getUserId() != null && !logEntity.getUserId().equals(user.id())) {
+                throw new AccessDeniedException("Você não tem permissão para remover esta entrada.");
+            }
+        }
         if (logEntity != null) {
             logEntity.getEntries().remove(entry);
         }
