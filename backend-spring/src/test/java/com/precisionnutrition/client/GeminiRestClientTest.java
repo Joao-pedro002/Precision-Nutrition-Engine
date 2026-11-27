@@ -7,6 +7,7 @@ import com.precisionnutrition.model.dto.AiChatMessageDto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -19,10 +20,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class GeminiRestClientTest {
 
+    private static final String BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
@@ -32,7 +35,7 @@ class GeminiRestClientTest {
                 objectMapper,
                 "test-key",
                 "gemini-2.5-flash",
-                "https://generativelanguage.googleapis.com/v1beta",
+                BASE_URL,
                 0.4,
                 2048
         );
@@ -72,7 +75,7 @@ class GeminiRestClientTest {
                 objectMapper,
                 "test-key",
                 "gemini-2.5-flash",
-                "https://generativelanguage.googleapis.com/v1beta",
+                BASE_URL,
                 0.4,
                 2048
         );
@@ -99,10 +102,9 @@ class GeminiRestClientTest {
     }
 
     @Test
-    @DisplayName("Deve fazer parse com sucesso quando o Gemini retornar JSON válido com Content-Type: application/octet-stream")
-    void testParsesValidJsonWithOctetStreamContentType() {
-        String baseUrl = "https://generativelanguage.googleapis.com/v1beta";
-        RestClient.Builder builder = GeminiRestClient.configureRestClientBuilder(RestClient.builder(), baseUrl);
+    @DisplayName("Deve ler bytes brutos via exchange() e fazer parse UTF-8 quando Gemini retornar 200 com Content-Type: application/octet-stream")
+    void testParsesValidJsonWithOctetStreamContentTypeViaExchange() {
+        RestClient.Builder builder = GeminiRestClient.configureRestClientBuilder(RestClient.builder(), BASE_URL);
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         RestClient restClient = builder.build();
 
@@ -112,7 +114,8 @@ class GeminiRestClientTest {
                 "secret-test-key",
                 "gemini-2.5-flash",
                 0.4,
-                2048
+                2048,
+                10L
         );
 
         String responseJson = """
@@ -131,7 +134,7 @@ class GeminiRestClientTest {
                 }
                 """;
 
-        server.expect(requestTo(baseUrl + "/models/gemini-2.5-flash:generateContent"))
+        server.expect(requestTo(BASE_URL + "/models/gemini-2.5-flash:generateContent"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("Accept", MediaType.APPLICATION_JSON_VALUE))
                 .andExpect(header("x-goog-api-key", "secret-test-key"))
@@ -153,10 +156,9 @@ class GeminiRestClientTest {
     }
 
     @Test
-    @DisplayName("Deve lançar AiServiceUnavailableException quando corpo retornado não for JSON válido")
-    void testThrowsAiServiceUnavailableOnInvalidJsonBody() {
-        String baseUrl = "https://generativelanguage.googleapis.com/v1beta";
-        RestClient.Builder builder = GeminiRestClient.configureRestClientBuilder(RestClient.builder(), baseUrl);
+    @DisplayName("Deve fazer 1 retentativa automática quando o Gemini retornar HTTP 503 seguido de 200 OK")
+    void testRetriesOnceOn503AndSucceedsOnSecondAttempt() {
+        RestClient.Builder builder = GeminiRestClient.configureRestClientBuilder(RestClient.builder(), BASE_URL);
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         RestClient restClient = builder.build();
 
@@ -166,10 +168,68 @@ class GeminiRestClientTest {
                 "secret-test-key",
                 "gemini-2.5-flash",
                 0.4,
-                2048
+                2048,
+                10L
         );
 
-        server.expect(requestTo(baseUrl + "/models/gemini-2.5-flash:generateContent"))
+        String successJson = """
+                {
+                  "candidates": [
+                    {
+                      "finishReason": "STOP",
+                      "content": {
+                        "role": "model",
+                        "parts": [
+                          { "text": "Resposta recuperada após retentativa com sucesso!" }
+                        ]
+                      }
+                    }
+                  ]
+                }
+                """;
+
+        // 1ª tentativa: 503 Service Unavailable (high demand)
+        server.expect(requestTo(BASE_URL + "/models/gemini-2.5-flash:generateContent"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"error\":{\"code\":503,\"message\":\"The model is overloaded. Please try again later.\"}}"));
+
+        // 2ª tentativa (retentativa automática): 200 OK com application/octet-stream
+        server.expect(requestTo(BASE_URL + "/models/gemini-2.5-flash:generateContent"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess(
+                        successJson.getBytes(StandardCharsets.UTF_8),
+                        MediaType.APPLICATION_OCTET_STREAM
+                ));
+
+        String reply = client.generateContent(
+                "Instrução do sistema",
+                List.of(new AiChatMessageDto("user", "Como está meu dia?"))
+        );
+
+        server.verify();
+        assertEquals("Resposta recuperada após retentativa com sucesso!", reply);
+    }
+
+    @Test
+    @DisplayName("Deve lançar AiServiceUnavailableException quando corpo retornado não for JSON válido")
+    void testThrowsAiServiceUnavailableOnInvalidJsonBody() {
+        RestClient.Builder builder = GeminiRestClient.configureRestClientBuilder(RestClient.builder(), BASE_URL);
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        RestClient restClient = builder.build();
+
+        GeminiRestClient client = new GeminiRestClient(
+                restClient,
+                objectMapper,
+                "secret-test-key",
+                "gemini-2.5-flash",
+                0.4,
+                2048,
+                10L
+        );
+
+        server.expect(requestTo(BASE_URL + "/models/gemini-2.5-flash:generateContent"))
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withSuccess(
                         "<html>502 Bad Gateway</html>".getBytes(StandardCharsets.UTF_8),
