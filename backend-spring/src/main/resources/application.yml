@@ -61,4 +61,7 @@ app:
       base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
       temperature: 0.4
       max-output-tokens: 2048
+      thinking-budget: ${GEMINI_THINKING_BUDGET:0}
+      connect-timeout-seconds: 10
+      read-timeout-seconds: 60
       rate-limit-per-minute: 10

@@ -12,11 +12,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ public class GeminiRestClient implements GeminiClient {
 
     private static final int MAX_LOG_SNIPPET_LENGTH = 200;
     private static final long DEFAULT_RETRY_DELAY_MS = 1500L;
+    private static final int MIN_READ_TIMEOUT_SECONDS = 60;
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -37,6 +39,9 @@ public class GeminiRestClient implements GeminiClient {
     private final String model;
     private final double temperature;
     private final int maxOutputTokens;
+    private final Integer thinkingBudget;
+    private final int connectTimeoutSeconds;
+    private final int readTimeoutSeconds;
     private final long retryDelayMs;
 
     private record RawHttpResponse(HttpStatusCode status, String body) {}
@@ -48,15 +53,21 @@ public class GeminiRestClient implements GeminiClient {
             @Value("${app.ai.gemini.model:gemini-2.5-flash}") String model,
             @Value("${app.ai.gemini.base-url:https://generativelanguage.googleapis.com/v1beta}") String baseUrl,
             @Value("${app.ai.gemini.temperature:0.4}") double temperature,
-            @Value("${app.ai.gemini.max-output-tokens:2048}") int maxOutputTokens
+            @Value("${app.ai.gemini.max-output-tokens:2048}") int maxOutputTokens,
+            @Value("${app.ai.gemini.thinking-budget:0}") Integer thinkingBudget,
+            @Value("${app.ai.gemini.connect-timeout-seconds:10}") int connectTimeoutSeconds,
+            @Value("${app.ai.gemini.read-timeout-seconds:60}") int readTimeoutSeconds
     ) {
         this(
-                buildDefaultRestClient(baseUrl),
+                buildDefaultRestClient(baseUrl, Math.max(5, connectTimeoutSeconds), Math.max(MIN_READ_TIMEOUT_SECONDS, readTimeoutSeconds)),
                 objectMapper,
                 apiKey,
                 model,
                 temperature,
                 maxOutputTokens,
+                thinkingBudget,
+                Math.max(5, connectTimeoutSeconds),
+                Math.max(MIN_READ_TIMEOUT_SECONDS, readTimeoutSeconds),
                 DEFAULT_RETRY_DELAY_MS
         );
     }
@@ -68,6 +79,9 @@ public class GeminiRestClient implements GeminiClient {
             String model,
             double temperature,
             int maxOutputTokens,
+            Integer thinkingBudget,
+            int connectTimeoutSeconds,
+            int readTimeoutSeconds,
             long retryDelayMs
     ) {
         this.restClient = restClient;
@@ -76,7 +90,20 @@ public class GeminiRestClient implements GeminiClient {
         this.model = (model != null && !model.isBlank()) ? model.trim() : "gemini-2.5-flash";
         this.temperature = temperature;
         this.maxOutputTokens = maxOutputTokens;
+        this.thinkingBudget = thinkingBudget;
+        this.connectTimeoutSeconds = connectTimeoutSeconds;
+        this.readTimeoutSeconds = readTimeoutSeconds;
         this.retryDelayMs = Math.max(0L, retryDelayMs);
+
+        log.info(
+                "GeminiRestClient inicializado: model={}, configured={}, connectTimeout={}s, readTimeout={}s, maxOutputTokens={}, thinkingBudget={}",
+                this.model,
+                isConfigured(),
+                this.connectTimeoutSeconds,
+                this.readTimeoutSeconds,
+                this.maxOutputTokens,
+                this.thinkingBudget
+        );
     }
 
     static RestClient.Builder configureRestClientBuilder(RestClient.Builder builder, String baseUrl) {
@@ -87,10 +114,13 @@ public class GeminiRestClient implements GeminiClient {
         return builder.baseUrl(normalizedBaseUrl);
     }
 
-    private static RestClient buildDefaultRestClient(String baseUrl) {
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(Duration.ofSeconds(10));
-        requestFactory.setReadTimeout(Duration.ofSeconds(60));
+    private static RestClient buildDefaultRestClient(String baseUrl, int connectTimeoutSeconds, int readTimeoutSeconds) {
+        HttpClient httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(connectTimeoutSeconds))
+                .build();
+
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+        requestFactory.setReadTimeout(Duration.ofSeconds(readTimeoutSeconds));
 
         return configureRestClientBuilder(RestClient.builder(), baseUrl)
                 .requestFactory(requestFactory)
@@ -207,7 +237,8 @@ public class GeminiRestClient implements GeminiClient {
         } catch (AiServiceUnavailableException ex) {
             throw ex;
         } catch (RestClientException ex) {
-            log.error("Falha de comunicação com a API Gemini (modelo={}): {}", model, ex.getMessage());
+            log.error("Falha de comunicação com a API Gemini (modelo={}, readTimeout={}s): {}",
+                    model, readTimeoutSeconds, ex.getMessage());
             throw new AiServiceUnavailableException(
                     "Serviço de IA temporariamente indisponível. Tente novamente em alguns segundos.",
                     ex
@@ -301,6 +332,9 @@ public class GeminiRestClient implements GeminiClient {
         Map<String, Object> generationConfig = new LinkedHashMap<>();
         generationConfig.put("temperature", temperature);
         generationConfig.put("maxOutputTokens", maxOutputTokens);
+        if (thinkingBudget != null && thinkingBudget >= 0) {
+            generationConfig.put("thinkingConfig", Map.of("thinkingBudget", thinkingBudget));
+        }
         payload.put("generationConfig", generationConfig);
 
         return payload;

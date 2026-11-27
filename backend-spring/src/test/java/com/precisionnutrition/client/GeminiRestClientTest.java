@@ -18,6 +18,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
@@ -37,7 +38,10 @@ class GeminiRestClientTest {
                 "gemini-2.5-flash",
                 BASE_URL,
                 0.4,
-                2048
+                2048,
+                0,
+                10,
+                60
         );
 
         String json = """
@@ -77,7 +81,10 @@ class GeminiRestClientTest {
                 "gemini-2.5-flash",
                 BASE_URL,
                 0.4,
-                2048
+                2048,
+                0,
+                10,
+                60
         );
 
         String json = """
@@ -102,8 +109,8 @@ class GeminiRestClientTest {
     }
 
     @Test
-    @DisplayName("Deve ler bytes brutos via exchange() e fazer parse UTF-8 quando Gemini retornar 200 com Content-Type: application/octet-stream")
-    void testParsesValidJsonWithOctetStreamContentTypeViaExchange() {
+    @DisplayName("Deve enviar thinkingBudget no payload JSON e fazer parse UTF-8 via exchange() com Content-Type: application/octet-stream")
+    void testSendsThinkingBudgetAndParsesOctetStreamContentTypeViaExchange() {
         RestClient.Builder builder = GeminiRestClient.configureRestClientBuilder(RestClient.builder(), BASE_URL);
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         RestClient restClient = builder.build();
@@ -115,6 +122,9 @@ class GeminiRestClientTest {
                 "gemini-2.5-flash",
                 0.4,
                 2048,
+                0,
+                10,
+                60,
                 10L
         );
 
@@ -138,6 +148,9 @@ class GeminiRestClientTest {
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("Accept", MediaType.APPLICATION_JSON_VALUE))
                 .andExpect(header("x-goog-api-key", "secret-test-key"))
+                .andExpect(jsonPath("$.generationConfig.maxOutputTokens").value(2048))
+                .andExpect(jsonPath("$.generationConfig.temperature").value(0.4))
+                .andExpect(jsonPath("$.generationConfig.thinkingConfig.thinkingBudget").value(0))
                 .andRespond(withSuccess(
                         responseJson.getBytes(StandardCharsets.UTF_8),
                         MediaType.APPLICATION_OCTET_STREAM
@@ -169,6 +182,9 @@ class GeminiRestClientTest {
                 "gemini-2.5-flash",
                 0.4,
                 2048,
+                0,
+                10,
+                60,
                 10L
         );
 
@@ -188,16 +204,16 @@ class GeminiRestClientTest {
                 }
                 """;
 
-        // 1ª tentativa: 503 Service Unavailable (high demand)
         server.expect(requestTo(BASE_URL + "/models/gemini-2.5-flash:generateContent"))
                 .andExpect(method(HttpMethod.POST))
+                .andExpect(jsonPath("$.generationConfig.thinkingConfig.thinkingBudget").value(0))
                 .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE)
                         .contentType(MediaType.APPLICATION_JSON)
                         .body("{\"error\":{\"code\":503,\"message\":\"The model is overloaded. Please try again later.\"}}"));
 
-        // 2ª tentativa (retentativa automática): 200 OK com application/octet-stream
         server.expect(requestTo(BASE_URL + "/models/gemini-2.5-flash:generateContent"))
                 .andExpect(method(HttpMethod.POST))
+                .andExpect(jsonPath("$.generationConfig.thinkingConfig.thinkingBudget").value(0))
                 .andRespond(withSuccess(
                         successJson.getBytes(StandardCharsets.UTF_8),
                         MediaType.APPLICATION_OCTET_STREAM
@@ -226,6 +242,9 @@ class GeminiRestClientTest {
                 "gemini-2.5-flash",
                 0.4,
                 2048,
+                0,
+                10,
+                60,
                 10L
         );
 
