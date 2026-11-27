@@ -25,6 +25,10 @@ import {
   addMealOptionItemApi,
   createMealApi,
   deleteMealApi,
+  askNutritionAiApi,
+  AiChatMessage,
+  AiChatApiResult,
+  AiChatApiError,
 } from '@/lib/api';
 import {
   WaterUpdateResponse,
@@ -289,4 +293,23 @@ export async function createMealServerAction(
 export async function deleteMealServerAction(mealId: string): Promise<void> {
   await deleteMealApi(mealId);
   revalidatePath('/');
+}
+
+/**
+ * Server Action: Consulta o Copiloto Nutricional com IA (mantendo API key e JWT apenas no servidor)
+ */
+export async function askNutritionAiAction(
+  message: string,
+  date?: string,
+  history?: AiChatMessage[]
+): Promise<AiChatApiResult | AiChatApiError> {
+  const trimmed = message.trim();
+  if (!trimmed) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Digite uma pergunta antes de enviar.',
+    };
+  }
+  return await askNutritionAiApi(trimmed, date, history);
 }

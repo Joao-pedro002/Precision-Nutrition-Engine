@@ -535,3 +535,94 @@ export async function deleteMealApi(mealId: string): Promise<void> {
     throw new Error(`Falha ao excluir refeição [HTTP ${response.status}]: ${errorText}`);
   }
 }
+
+export interface AiChatMessage {
+  role: 'user' | 'model';
+  text: string;
+}
+
+export interface AiChatApiResult {
+  ok: true;
+  reply: string;
+  model: string;
+}
+
+export interface AiChatApiError {
+  ok: false;
+  status: number;
+  error: string;
+}
+
+/**
+ * Consulta o Copiloto Nutricional com IA (POST /api/v1/ai/chat) usando o cookie HttpOnly.
+ */
+export async function askNutritionAiApi(
+  message: string,
+  date?: string,
+  history?: AiChatMessage[]
+): Promise<AiChatApiResult | AiChatApiError> {
+  try {
+    const response = await authorizedFetch(`${API_BASE_URL}/ai/chat`, {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message,
+        date: date || undefined,
+        history: history && history.length > 0 ? history.slice(-12) : undefined,
+      }),
+    });
+
+    if (!response.ok) {
+      let backendMessage = '';
+      try {
+        const errJson = await response.json();
+        if (typeof errJson?.message === 'string') {
+          backendMessage = errJson.message;
+        }
+      } catch {
+        // fallback para mensagem amigável por status
+      }
+
+      if (response.status === 429) {
+        return {
+          ok: false,
+          status: 429,
+          error:
+            backendMessage ||
+            'Você atingiu o limite de perguntas por minuto. Aguarde alguns instantes e tente novamente.',
+        };
+      }
+      if (response.status === 503) {
+        return {
+          ok: false,
+          status: 503,
+          error:
+            backendMessage ||
+            'O assistente de IA está temporariamente indisponível ou ainda não foi configurado no servidor.',
+        };
+      }
+      return {
+        ok: false,
+        status: response.status,
+        error: backendMessage || `Não foi possível consultar a IA no momento (HTTP ${response.status}).`,
+      };
+    }
+
+    const data = await response.json();
+    return {
+      ok: true,
+      reply: typeof data?.reply === 'string' ? data.reply : '',
+      model: typeof data?.model === 'string' ? data.model : 'gemini-2.5-flash',
+    };
+  } catch (error: unknown) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+    return {
+      ok: false,
+      status: 503,
+      error: 'Falha de conexão com o servidor. Verifique sua internet e tente novamente.',
+    };
+  }
+}

@@ -8,6 +8,7 @@ import { MicronutrientMatrix } from '@/components/MicronutrientMatrix';
 import { DateSelector } from '@/components/DateSelector';
 import { LogoutButton } from '@/components/LogoutButton';
 import { MealCards } from '@/components/MealCards';
+import { NutritionAiAssistant } from '@/components/NutritionAiAssistant';
 import { Sparkles, AlertCircle } from 'lucide-react';
 import { WeightHistoryResponse } from '@/types/nutrition';
 
@@ -160,6 +161,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             currentDate={currentDate}
             loggedEntries={dashboardData.loggedEntries}
           />
+
+          {/* 5. Copiloto Nutricional com IA (Botão Flutuante + Drawer Responsivo) */}
+          <NutritionAiAssistant currentDate={currentDate} />
         </div>
       )}
     </main>
