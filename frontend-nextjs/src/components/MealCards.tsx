@@ -802,8 +802,8 @@ export function MealCards({ meals, currentDate, loggedEntries }: MealCardsProps)
             onClick={() => setIsCreateMealModalOpen(true)}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 border border-emerald-400 text-xs font-black transition-all active:scale-95 whitespace-nowrap shadow-sm"
           >
-            <Plus className="w-4 h-4" />
-            <span>+ Nova Refeição</span>
+            <Plus className="w-4 h-4" aria-hidden="true" />
+            <span>Nova Refeição</span>
           </button>
 
           <button
@@ -811,8 +811,8 @@ export function MealCards({ meals, currentDate, loggedEntries }: MealCardsProps)
             onClick={() => setIsCustomFoodModalOpen(true)}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-all active:scale-95 whitespace-nowrap"
           >
-            <PlusCircle className="w-4 h-4 text-emerald-400" />
-            <span>+ Novo Alimento</span>
+            <PlusCircle className="w-4 h-4 text-emerald-400" aria-hidden="true" />
+            <span>Novo Alimento</span>
           </button>
         </div>
       </div>
@@ -841,8 +841,8 @@ export function MealCards({ meals, currentDate, loggedEntries }: MealCardsProps)
               onClick={() => setIsCreateMealModalOpen(true)}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs transition-all shadow-lg shadow-emerald-500/20"
             >
-              <Plus className="w-4 h-4" />
-              <span>+ Criar Primeira Refeição</span>
+              <Plus className="w-4 h-4" aria-hidden="true" />
+              <span>Criar Primeira Refeição</span>
             </button>
           </div>
         </div>

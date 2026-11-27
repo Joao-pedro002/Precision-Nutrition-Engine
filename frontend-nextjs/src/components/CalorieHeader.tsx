@@ -99,17 +99,17 @@ export function CalorieHeader({ summary, activeTarget, currentDate, mealsCount =
   });
 
   return (
-    <div className="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden">
+    <div className="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-3xl p-4 sm:p-6 shadow-xl relative overflow-hidden">
       {/* Glow de fundo */}
       <div className="absolute -top-24 -right-24 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
         <div>
           <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 capitalize">
             {formattedDate}
           </span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-3 mt-1">
+          <h1 className="text-xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-3 mt-1 [text-wrap:balance]">
             Plano Ativo: {activeTarget ? (activeTarget.targetSource === 'CALCULATED' ? 'Metabolismo Clínico' : 'Cutting de Precisão') : 'Sem Meta Ativa'}
           </h1>
         </div>
@@ -210,21 +210,21 @@ export function CalorieHeader({ summary, activeTarget, currentDate, mealsCount =
         </div>
 
         {/* Legenda das Zonas */}
-        <div className="flex justify-between items-center text-[11px] font-medium text-slate-400 px-1 pt-1">
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-slate-600" />
+        <div className="grid grid-cols-2 gap-2 text-xs sm:flex sm:justify-between sm:items-center sm:text-[11px] font-medium text-slate-400 px-1 pt-1">
+          <span className="flex items-center gap-1.5 whitespace-nowrap">
+            <span className="w-2 h-2 rounded-full bg-slate-600 shrink-0" />
             0 kcal
           </span>
-          <span className="flex items-center gap-1 text-emerald-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          <span className="flex items-center gap-1.5 text-emerald-400 whitespace-nowrap">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
             {targetKcalMin.toFixed(0)} kcal (Piso)
           </span>
-          <span className="flex items-center gap-1 text-amber-400">
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
+          <span className="flex items-center gap-1.5 text-amber-400 whitespace-nowrap">
+            <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
             {targetKcalMax.toFixed(0)} kcal (Teto Déficit)
           </span>
-          <span className="flex items-center gap-1 text-rose-400">
-            <span className="w-2 h-2 rounded-full bg-rose-500" />
+          <span className="flex items-center gap-1.5 text-rose-400 whitespace-nowrap">
+            <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
             {maintenanceKcalCeiling.toFixed(0)} kcal (Manutenção)
           </span>
         </div>

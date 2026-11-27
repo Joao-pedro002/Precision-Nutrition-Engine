@@ -201,8 +201,8 @@ export function AddMealItemModal({
                 onClick={() => setIsCustomModalOpen(true)}
                 className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1 rounded-lg border border-emerald-500/25 transition-colors"
               >
-                <PlusCircle className="w-3.5 h-3.5" />
-                <span>+ Novo Alimento</span>
+                <PlusCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Novo Alimento</span>
               </button>
             </div>
 

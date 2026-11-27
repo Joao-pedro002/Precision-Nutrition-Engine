@@ -15,6 +15,7 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   min-height: 100vh;
   accent-color: #10b981;
+  overflow-wrap: break-word;
 }
 
 /* Custom scrollbar matching dark palette */
@@ -50,8 +51,8 @@ body {
 }
 
 progress.macro-progress-ring {
-  --size: 7.75rem;
-  --thickness: 10px;
+  --size: 4.25rem;
+  --thickness: 6px;
   --track-color: #1e293b;
   --fill-color: #06b6d4;
   appearance: none;
@@ -67,6 +68,13 @@ progress.macro-progress-ring {
   border: var(--thickness) solid transparent;
   background-origin: border-box;
   transition: --value 0s ease-in-out;
+}
+
+@media (min-width: 768px) {
+  progress.macro-progress-ring {
+    --size: 7.75rem;
+    --thickness: 10px;
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {

@@ -65,33 +65,39 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   }
 
   return (
-    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-8 space-y-4 sm:space-y-6">
       {/* Barra de Navegação Superior */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-800/60">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-lg shadow-emerald-500/20">
-            <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-emerald-400" />
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 pb-2.5 sm:pb-2 border-b border-slate-800/60">
+        <div className="flex items-center justify-between gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-lg shadow-emerald-500/20 shrink-0">
+              <div className="w-full h-full bg-slate-950 rounded-[10px] sm:rounded-[14px] flex items-center justify-center">
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" aria-hidden="true" />
+              </div>
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <span className="text-sm sm:text-base font-black tracking-tight text-white leading-tight">
+                  PRECISION NUTRITION
+                </span>
+                <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
+                  TACO + USDA
+                </span>
+              </div>
+              <p className="text-[11px] sm:text-xs text-slate-400 leading-snug">
+                Motor Matemático de Alta Fidelidade (USFit Engine)
+              </p>
             </div>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-base font-black tracking-tight text-white">
-                PRECISION NUTRITION
-              </span>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                TACO + USDA
-              </span>
-            </div>
-            <p className="text-xs text-slate-400">
-              Motor Matemático de Alta Fidelidade (USFit Engine)
-            </p>
-          </div>
+
+          <LogoutButton compact className="sm:hidden" />
         </div>
 
-        <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
-          <DateSelector currentDate={currentDate} />
-          <LogoutButton />
+        <div className="w-full sm:w-auto flex items-center gap-2.5 sm:self-auto">
+          <div className="w-full sm:w-auto">
+            <DateSelector currentDate={currentDate} />
+          </div>
+          <LogoutButton className="hidden sm:inline-flex" />
         </div>
       </header>
 

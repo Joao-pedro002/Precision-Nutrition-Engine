@@ -14,6 +14,7 @@ interface FiberProgressBarProps {
 
 interface SingleMacroRingProps {
   label: string;
+  shortLabel: string;
   shortCode: string;
   consumed: number;
   target: number;
@@ -32,6 +33,7 @@ function formatGrams(value: number): string {
 
 function SingleMacroRing({
   label,
+  shortLabel,
   shortCode,
   consumed,
   target,
@@ -75,17 +77,22 @@ function SingleMacroRing({
 
   return (
     <div
-      className={`h-full bg-slate-900/60 border rounded-3xl p-5 flex flex-col items-center justify-between shadow-lg transition-all ${
+      className={`h-full min-w-0 bg-slate-900/60 border rounded-2xl md:rounded-3xl p-2.5 md:p-5 flex flex-col items-center justify-between shadow-lg transition-all ${
         isCriticalExcess
           ? 'border-rose-500/50 shadow-rose-500/10'
           : 'border-slate-800 hover:border-slate-700'
       }`}
     >
-      <div className="w-full flex items-center justify-between mb-3">
-        <span className={`text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border ${badgeBgClass}`}>
+      <div className="w-full flex items-center justify-between gap-1 mb-2 md:mb-3">
+        <span className={`text-[10px] md:text-[11px] font-bold uppercase tracking-wider px-1.5 md:px-2 py-0.5 rounded-md md:rounded-lg border shrink-0 ${badgeBgClass}`}>
           {shortCode}
         </span>
-        <span className="text-xs font-bold text-slate-200">{label}</span>
+        <span className="md:hidden text-[11px] font-bold text-slate-200 truncate">
+          {shortLabel}
+        </span>
+        <span className="hidden md:inline text-xs font-bold text-slate-200">
+          {label}
+        </span>
       </div>
 
       {/* Anel Semântico de Progresso (<progress> + conic-gradient) */}
@@ -104,19 +111,21 @@ function SingleMacroRing({
           aria-hidden="true"
           className="absolute flex flex-col items-center justify-center text-center pointer-events-none"
         >
-          <span className={`text-xl font-black tabular-nums ${isCriticalExcess ? 'text-rose-400' : textClass}`}>
+          <span className={`text-sm md:text-xl font-black tabular-nums leading-none ${isCriticalExcess ? 'text-rose-400' : textClass}`}>
             {computedPercent.toFixed(0)}%
           </span>
-          <span className="text-[10px] text-slate-400 font-medium">da meta</span>
+          <span className="hidden md:block text-[10px] text-slate-400 font-medium mt-0.5">
+            da meta
+          </span>
         </div>
       </div>
 
-      <div className="mt-4 text-center w-full space-y-2">
-        <div className="flex items-baseline justify-center gap-1.5 tabular-nums whitespace-nowrap">
-          <span className="text-lg font-black text-slate-100">
+      <div className="mt-2.5 md:mt-4 text-center w-full space-y-1 md:space-y-2">
+        <div className="flex items-baseline justify-center gap-0.5 md:gap-1.5 tabular-nums whitespace-nowrap">
+          <span className="text-xs md:text-lg font-black text-slate-100">
             {formatGrams(safeConsumed)}g
           </span>
-          <span className="text-xs text-slate-400 font-medium">
+          <span className="text-[10px] md:text-xs text-slate-400 font-medium">
             / {formatGrams(safeTarget)}g
           </span>
         </div>
@@ -124,22 +133,28 @@ function SingleMacroRing({
         {/* Saldo Restante / Tolerância (100-105%) / Alerta Crítico (>105%) */}
         <div className="flex justify-center">
           {isCriticalExcess ? (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30 whitespace-nowrap">
-              <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
-              +{formatGrams(excessAmount)}g acima da meta
+            <span className="inline-flex items-center gap-1 px-1.5 md:px-2.5 py-0.5 md:py-1 rounded-full text-[10px] md:text-[11px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30 whitespace-nowrap">
+              <AlertTriangle className="w-2.5 h-2.5 md:w-3 md:h-3 text-rose-400 shrink-0" aria-hidden="true" />
+              <span className="md:hidden">+{formatGrams(excessAmount)}g</span>
+              <span className="hidden md:inline">+{formatGrams(excessAmount)}g acima da meta</span>
             </span>
           ) : isToleranceExcess ? (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-800/80 text-slate-300 border border-slate-700/70 whitespace-nowrap">
-              +{formatGrams(excessAmount)}g (na tolerância)
+            <span className="inline-flex items-center gap-1 px-1.5 md:px-2.5 py-0.5 md:py-1 rounded-full text-[10px] md:text-[11px] font-semibold bg-slate-800/80 text-slate-300 border border-slate-700/70 whitespace-nowrap">
+              <span className="md:hidden">+{formatGrams(excessAmount)}g</span>
+              <span className="hidden md:inline">+{formatGrams(excessAmount)}g (na tolerância)</span>
             </span>
           ) : isGoalMet ? (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 whitespace-nowrap">
-              <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
-              Meta atingida!
+            <span className="inline-flex items-center gap-1 px-1.5 md:px-2.5 py-0.5 md:py-1 rounded-full text-[10px] md:text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 whitespace-nowrap">
+              <CheckCircle2 className="w-2.5 h-2.5 md:w-3 md:h-3 text-emerald-400 shrink-0" aria-hidden="true" />
+              <span className="md:hidden">100%</span>
+              <span className="hidden md:inline">Meta atingida!</span>
             </span>
           ) : (
-            <span className="text-[11px] font-medium text-slate-400 whitespace-nowrap">
-              Faltam <strong className="text-slate-200">{formatGrams(remainingAmount)}g</strong>
+            <span className="text-[10px] md:text-[11px] font-medium text-slate-400 whitespace-nowrap">
+              <span className="md:hidden">-{formatGrams(remainingAmount)}g</span>
+              <span className="hidden md:inline">
+                Faltam <strong className="text-slate-200">{formatGrams(remainingAmount)}g</strong>
+              </span>
             </span>
           )}
         </div>
@@ -153,13 +168,13 @@ export function FiberProgressBar({ consumedFiberG = 0, targetFiberG = 0 }: Fiber
 
   return (
     <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-xs shrink-0">
+      <div className="flex items-start sm:items-center gap-3 min-w-0">
+        <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-xs shrink-0 mt-0.5 sm:mt-0">
           F
         </div>
         <div className="min-w-0">
           <h2 className="text-xs font-semibold text-slate-300">Fibras Alimentares</h2>
-          <p className="text-xs text-slate-400 truncate">
+          <p className="text-xs text-slate-400 leading-snug [text-wrap:pretty]">
             Essencial para motilidade intestinal e controle glicêmico
           </p>
         </div>
@@ -198,9 +213,10 @@ export function MacroDonutCharts({ summary, showFiberBar = false }: MacroDonutCh
   return (
     <section aria-label="Painel Global de Macronutrientes" className="h-full space-y-4">
       {/* Grid com os 3 Anéis de Macronutrientes */}
-      <div className="h-full grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="h-full grid grid-cols-3 gap-2 md:grid-cols-3 md:gap-6">
         <SingleMacroRing
           label="Proteínas"
+          shortLabel="Prot."
           shortCode="P"
           consumed={consumedProteinG}
           target={targetProteinG}
@@ -212,6 +228,7 @@ export function MacroDonutCharts({ summary, showFiberBar = false }: MacroDonutCh
 
         <SingleMacroRing
           label="Carboidratos"
+          shortLabel="Carbs"
           shortCode="C"
           consumed={consumedCarbohydrateG}
           target={targetCarbohydrateG}
@@ -223,6 +240,7 @@ export function MacroDonutCharts({ summary, showFiberBar = false }: MacroDonutCh
 
         <SingleMacroRing
           label="Gorduras"
+          shortLabel="Gord."
           shortCode="G"
           consumed={consumedLipidG}
           target={targetLipidG}
