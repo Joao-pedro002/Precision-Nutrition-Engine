@@ -1,18 +1,23 @@
 package com.precisionnutrition.client;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.precisionnutrition.exception.AiServiceUnavailableException;
 import com.precisionnutrition.exception.RateLimitExceededException;
 import com.precisionnutrition.model.dto.AiChatMessageDto;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -23,31 +28,69 @@ import java.util.Map;
 @Slf4j
 public class GeminiRestClient implements GeminiClient {
 
+    private static final int MAX_LOG_SNIPPET_LENGTH = 200;
+
     private final RestClient restClient;
+    private final ObjectMapper objectMapper;
     private final String apiKey;
     private final String model;
     private final double temperature;
     private final int maxOutputTokens;
 
+    @Autowired
     public GeminiRestClient(
+            ObjectMapper objectMapper,
             @Value("${app.ai.gemini.api-key:}") String apiKey,
             @Value("${app.ai.gemini.model:gemini-2.5-flash}") String model,
             @Value("${app.ai.gemini.base-url:https://generativelanguage.googleapis.com/v1beta}") String baseUrl,
             @Value("${app.ai.gemini.temperature:0.4}") double temperature,
             @Value("${app.ai.gemini.max-output-tokens:2048}") int maxOutputTokens
     ) {
+        this(
+                buildDefaultRestClient(baseUrl),
+                objectMapper,
+                apiKey,
+                model,
+                temperature,
+                maxOutputTokens
+        );
+    }
+
+    GeminiRestClient(
+            RestClient restClient,
+            ObjectMapper objectMapper,
+            String apiKey,
+            String model,
+            double temperature,
+            int maxOutputTokens
+    ) {
+        this.restClient = restClient;
+        this.objectMapper = objectMapper;
         this.apiKey = apiKey != null ? apiKey.trim() : "";
         this.model = (model != null && !model.isBlank()) ? model.trim() : "gemini-2.5-flash";
         this.temperature = temperature;
         this.maxOutputTokens = maxOutputTokens;
+    }
 
+    static RestClient.Builder configureRestClientBuilder(RestClient.Builder builder, String baseUrl) {
+        String normalizedBaseUrl = baseUrl != null
+                ? baseUrl.replaceAll("/+$", "")
+                : "https://generativelanguage.googleapis.com/v1beta";
+
+        return builder
+                .baseUrl(normalizedBaseUrl)
+                .messageConverters(converters -> {
+                    converters.removeIf(StringHttpMessageConverter.class::isInstance);
+                    converters.add(0, new StringHttpMessageConverter(StandardCharsets.UTF_8));
+                });
+    }
+
+    private static RestClient buildDefaultRestClient(String baseUrl) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Duration.ofSeconds(10));
-        requestFactory.setReadTimeout(Duration.ofSeconds(30));
+        requestFactory.setReadTimeout(Duration.ofSeconds(60));
 
-        String normalizedBaseUrl = baseUrl != null ? baseUrl.replaceAll("/+$", "") : "https://generativelanguage.googleapis.com/v1beta";
-        this.restClient = RestClient.builder()
-                .baseUrl(normalizedBaseUrl)
+        return configureRestClientBuilder(RestClient.builder(), baseUrl)
                 .requestFactory(requestFactory)
                 .build();
     }
@@ -73,18 +116,44 @@ public class GeminiRestClient implements GeminiClient {
         Map<String, Object> payload = buildRequestPayload(systemInstruction, turns);
 
         try {
-            JsonNode response = restClient.post()
+            String rawBody = restClient.post()
                     .uri("/models/{model}:generateContent", model)
                     .contentType(MediaType.APPLICATION_JSON)
                     .accept(MediaType.APPLICATION_JSON)
+                    .header("Accept", MediaType.APPLICATION_JSON_VALUE)
                     .header("x-goog-api-key", apiKey)
                     .body(payload)
                     .retrieve()
-                    .body(JsonNode.class);
+                    .body(String.class);
+
+            if (rawBody == null || rawBody.isBlank()) {
+                log.error("Gemini retornou corpo vazio/nulo (modelo={}, tamanho=0)", model);
+                throw new AiServiceUnavailableException(
+                        "A IA retornou uma resposta vazia no momento. Tente novamente em instantes."
+                );
+            }
+
+            JsonNode response;
+            try {
+                response = objectMapper.readTree(rawBody);
+            } catch (JsonProcessingException ex) {
+                log.error(
+                        "Falha ao fazer parse do JSON retornado pelo Gemini (modelo={}, tamanho={}, trecho='{}')",
+                        model,
+                        rawBody.length(),
+                        safeSnippet(rawBody),
+                        ex
+                );
+                throw new AiServiceUnavailableException(
+                        "Não foi possível interpretar a resposta da IA no momento. Tente novamente.",
+                        ex
+                );
+            }
 
             String text = extractReplyText(response);
             if (text.isBlank()) {
-                log.warn("Gemini retornou resposta vazia para o modelo {}", model);
+                log.warn("Gemini retornou resposta sem blocos de texto visíveis (modelo={}, tamanho={})",
+                        model, rawBody.length());
                 throw new AiServiceUnavailableException(
                         "A IA não conseguiu gerar uma resposta no momento. Tente reformular sua pergunta."
                 );
@@ -96,7 +165,8 @@ public class GeminiRestClient implements GeminiClient {
                     "O assistente está temporariamente congestionado. Aguarde alguns instantes e tente novamente."
             );
         } catch (HttpClientErrorException ex) {
-            log.error("Erro cliente ao chamar Gemini API (HTTP {}): {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+            log.error("Erro cliente ao chamar Gemini API (HTTP {}): tamanho={}",
+                    ex.getStatusCode(), ex.getResponseBodyAsString().length());
             throw new AiServiceUnavailableException(
                     "Não foi possível consultar o assistente nutricional no momento. Verifique a configuração da IA.",
                     ex
@@ -108,6 +178,17 @@ public class GeminiRestClient implements GeminiClient {
                     ex
             );
         }
+    }
+
+    private String safeSnippet(String rawBody) {
+        String sanitized = rawBody.replaceAll("[\\r\\n\\t]+", " ").trim();
+        if (!apiKey.isBlank()) {
+            sanitized = sanitized.replace(apiKey, "[REDACTED]");
+        }
+        if (sanitized.length() <= MAX_LOG_SNIPPET_LENGTH) {
+            return sanitized;
+        }
+        return sanitized.substring(0, MAX_LOG_SNIPPET_LENGTH) + "...";
     }
 
     private Map<String, Object> buildRequestPayload(String systemInstruction, List<AiChatMessageDto> turns) {
