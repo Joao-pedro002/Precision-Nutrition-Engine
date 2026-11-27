@@ -34,7 +34,7 @@ public class GeminiRestClient implements GeminiClient {
             @Value("${app.ai.gemini.model:gemini-2.5-flash}") String model,
             @Value("${app.ai.gemini.base-url:https://generativelanguage.googleapis.com/v1beta}") String baseUrl,
             @Value("${app.ai.gemini.temperature:0.4}") double temperature,
-            @Value("${app.ai.gemini.max-output-tokens:700}") int maxOutputTokens
+            @Value("${app.ai.gemini.max-output-tokens:2048}") int maxOutputTokens
     ) {
         this.apiKey = apiKey != null ? apiKey.trim() : "";
         this.model = (model != null && !model.isBlank()) ? model.trim() : "gemini-2.5-flash";
@@ -136,7 +136,7 @@ public class GeminiRestClient implements GeminiClient {
         return payload;
     }
 
-    private String extractReplyText(JsonNode response) {
+    String extractReplyText(JsonNode response) {
         if (response == null) {
             return "";
         }
@@ -145,7 +145,18 @@ public class GeminiRestClient implements GeminiClient {
             return "";
         }
 
-        JsonNode parts = candidates.get(0).path("content").path("parts");
+        JsonNode firstCandidate = candidates.get(0);
+        String finishReason = firstCandidate.path("finishReason").asText("");
+        if (!finishReason.isBlank() && !"STOP".equalsIgnoreCase(finishReason)) {
+            log.warn(
+                    "Resposta do Gemini finalizada com finishReason='{}' (modelo={}, maxOutputTokens={})",
+                    finishReason,
+                    model,
+                    maxOutputTokens
+            );
+        }
+
+        JsonNode parts = firstCandidate.path("content").path("parts");
         if (!parts.isArray() || parts.isEmpty()) {
             return "";
         }
@@ -155,12 +166,12 @@ public class GeminiRestClient implements GeminiClient {
             if (part.path("thought").asBoolean(false)) {
                 continue;
             }
+            if (!part.hasNonNull("text")) {
+                continue;
+            }
             String text = part.path("text").asText("");
-            if (!text.isBlank()) {
-                if (!sb.isEmpty()) {
-                    sb.append("\n");
-                }
-                sb.append(text.trim());
+            if (!text.isEmpty()) {
+                sb.append(text);
             }
         }
         return sb.toString().trim();

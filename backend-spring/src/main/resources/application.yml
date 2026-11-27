@@ -60,5 +60,5 @@ app:
       model: ${GEMINI_MODEL:gemini-2.5-flash}
       base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
       temperature: 0.4
-      max-output-tokens: 700
+      max-output-tokens: 2048
       rate-limit-per-minute: 10

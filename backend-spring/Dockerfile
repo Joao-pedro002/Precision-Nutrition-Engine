@@ -18,7 +18,8 @@ RUN mvn clean package -DskipTests -B \
 # =============================================================================
 FROM eclipse-temurin:21-jre-alpine AS runner
 
-RUN addgroup -S spring && adduser -S spring -G spring
+RUN apk add --no-cache tzdata \
+    && addgroup -S spring && adduser -S spring -G spring
 
 WORKDIR /app
 

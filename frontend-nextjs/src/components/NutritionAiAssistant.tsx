@@ -26,7 +26,7 @@ const QUICK_SUGGESTIONS = [
  * Suporta parágrafos, listas (-, *, 1.), subtítulos (###) e negrito (**texto**).
  */
 function renderInlineMarkdown(text: string): React.ReactNode[] {
-  const tokens = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+  const tokens = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*\n]+\*)/g);
   return tokens.map((token, idx) => {
     if (token.startsWith('**') && token.endsWith('**') && token.length > 4) {
       return (
@@ -42,26 +42,53 @@ function renderInlineMarkdown(text: string): React.ReactNode[] {
         </code>
       );
     }
+    if (
+      token.startsWith('*') &&
+      token.endsWith('*') &&
+      token.length > 2 &&
+      !token.startsWith('* ') &&
+      !token.endsWith(' *')
+    ) {
+      return (
+        <em key={idx} className="italic text-slate-100">
+          {token.slice(1, -1)}
+        </em>
+      );
+    }
     return <React.Fragment key={idx}>{token}</React.Fragment>;
   });
 }
 
 function FormattedMarkdown({ text }: { text: string }) {
-  const lines = text.split('\n');
+  const lines = text.split(/\r?\n/);
   const blocks: React.ReactNode[] = [];
+  let listType: 'ul' | 'ol' | null = null;
   let listItems: string[] = [];
 
   const flushList = (keyPrefix: string) => {
-    if (listItems.length === 0) return;
-    blocks.push(
-      <ul key={`${keyPrefix}-ul`} className="list-disc pl-4 space-y-1 text-slate-200">
-        {listItems.map((item, i) => (
-          <li key={i} className="leading-relaxed">
-            {renderInlineMarkdown(item)}
-          </li>
-        ))}
-      </ul>
-    );
+    if (!listType || listItems.length === 0) return;
+    if (listType === 'ol') {
+      blocks.push(
+        <ol key={`${keyPrefix}-ol`} className="list-decimal pl-5 space-y-1 text-slate-200">
+          {listItems.map((item, i) => (
+            <li key={i} className="leading-relaxed">
+              {renderInlineMarkdown(item)}
+            </li>
+          ))}
+        </ol>
+      );
+    } else {
+      blocks.push(
+        <ul key={`${keyPrefix}-ul`} className="list-disc pl-4 space-y-1 text-slate-200">
+          {listItems.map((item, i) => (
+            <li key={i} className="leading-relaxed">
+              {renderInlineMarkdown(item)}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    listType = null;
     listItems = [];
   };
 
@@ -72,15 +99,35 @@ function FormattedMarkdown({ text }: { text: string }) {
       return;
     }
 
-    const bulletMatch = line.match(/^(?:[-*•]|\d+\.)\s+(.*)$/);
-    if (bulletMatch) {
-      listItems.push(bulletMatch[1]);
+    if (/^[-*_]{3,}$/.test(line)) {
+      flushList(`hr-${index}`);
+      blocks.push(<hr key={`hr-${index}`} className="border-slate-800 my-2" />);
+      return;
+    }
+
+    const unorderedMatch = line.match(/^[-*•]\s+(.*)$/);
+    if (unorderedMatch) {
+      if (listType === 'ol') {
+        flushList(`ul-switch-${index}`);
+      }
+      listType = 'ul';
+      listItems.push(unorderedMatch[1]);
+      return;
+    }
+
+    const orderedMatch = line.match(/^\d+[.)]\s+(.*)$/);
+    if (orderedMatch) {
+      if (listType === 'ul') {
+        flushList(`ol-switch-${index}`);
+      }
+      listType = 'ol';
+      listItems.push(orderedMatch[1]);
       return;
     }
 
     flushList(`p-${index}`);
 
-    const headingMatch = line.match(/^#{1,3}\s+(.*)$/);
+    const headingMatch = line.match(/^#{1,4}\s+(.*)$/);
     if (headingMatch) {
       blocks.push(
         <p key={`h-${index}`} className="font-bold text-emerald-300 pt-1">
@@ -90,8 +137,18 @@ function FormattedMarkdown({ text }: { text: string }) {
       return;
     }
 
+    const quoteMatch = line.match(/^>\s+(.*)$/);
+    if (quoteMatch) {
+      blocks.push(
+        <blockquote key={`q-${index}`} className="border-l-2 border-emerald-500/50 pl-3 text-slate-300 italic leading-relaxed">
+          {renderInlineMarkdown(quoteMatch[1])}
+        </blockquote>
+      );
+      return;
+    }
+
     blocks.push(
-      <p key={`t-${index}`} className="leading-relaxed text-slate-200">
+      <p key={`t-${index}`} className="leading-relaxed text-slate-200 whitespace-pre-wrap">
         {renderInlineMarkdown(line)}
       </p>
     );
@@ -99,7 +156,7 @@ function FormattedMarkdown({ text }: { text: string }) {
 
   flushList('end');
 
-  return <div className="space-y-1.5 text-xs sm:text-[13px]">{blocks}</div>;
+  return <div className="space-y-1.5 text-xs sm:text-[13px] break-words">{blocks}</div>;
 }
 
 export function NutritionAiAssistant({ currentDate }: NutritionAiAssistantProps) {
